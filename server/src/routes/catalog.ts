@@ -17,6 +17,8 @@ catalogRouter.get("/products", async (req, res) => {
   const products = await prisma.product.findMany({
     where: {
       isActive: true,
+      // A product with no sellable pack size would render as "From ₹0".
+      variants: { some: { isActive: true } },
       ...(category ? { category: { slug: String(category) } } : {}),
       ...(featured === "true" ? { isFeatured: true } : {}),
       ...(q

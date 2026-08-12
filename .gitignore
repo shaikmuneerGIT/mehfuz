@@ -19,3 +19,7 @@ npm-debug.log*
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+
+# Local scratch space for throwaway scripts
+.scratch*/
+.e2e/

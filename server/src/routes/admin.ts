@@ -42,6 +42,13 @@ adminRouter.put("/categories/:id", async (req, res) => {
 });
 
 adminRouter.delete("/categories/:id", async (req, res) => {
+  const productCount = await prisma.product.count({ where: { categoryId: req.params.id } });
+  if (productCount > 0) {
+    return res.status(409).json({
+      error: `This category still has ${productCount} product(s). Move or delete them first.`,
+    });
+  }
+
   await prisma.category.delete({ where: { id: req.params.id } });
   res.status(204).send();
 });
@@ -93,15 +100,30 @@ adminRouter.put("/products/:id", async (req, res) => {
 
   const existing = await prisma.product.findUnique({
     where: { id: req.params.id },
-    include: { variants: true },
+    include: { variants: { where: { isActive: true } } },
   });
   if (!existing) return res.status(404).json({ error: "Product not found" });
 
   const incomingIds = new Set(variants.filter((v) => v.id).map((v) => v.id));
-  const toDelete = existing.variants.filter((v) => !incomingIds.has(v.id));
+  const removed = existing.variants.filter((v) => !incomingIds.has(v.id));
+
+  // A pack size that appears in a past order is deactivated rather than
+  // deleted, so order history keeps pointing at something real.
+  const orderedVariantIds = new Set(
+    (
+      await prisma.orderItem.findMany({
+        where: { variantId: { in: removed.map((v) => v.id) } },
+        select: { variantId: true },
+      })
+    ).map((oi) => oi.variantId)
+  );
 
   await prisma.$transaction([
-    ...toDelete.map((v) => prisma.variant.delete({ where: { id: v.id } })),
+    ...removed.map((v) =>
+      orderedVariantIds.has(v.id)
+        ? prisma.variant.update({ where: { id: v.id }, data: { isActive: false } })
+        : prisma.variant.delete({ where: { id: v.id } })
+    ),
     ...variants.map((v) =>
       v.id
         ? prisma.variant.update({
@@ -122,19 +144,49 @@ adminRouter.put("/products/:id", async (req, res) => {
 
   const product = await prisma.product.findUnique({
     where: { id: req.params.id },
-    include: { variants: true, category: true },
+    include: { variants: { where: { isActive: true } }, category: true },
   });
   res.json(product);
 });
 
 adminRouter.delete("/products/:id", async (req, res) => {
+  // Order history references products, so a product that has ever been
+  // ordered must not be hard-deleted — that would destroy past orders.
+  // The admin UI offers to hide it from the shop instead.
+  const ordered = await prisma.orderItem.count({ where: { productId: req.params.id } });
+  if (ordered > 0) {
+    return res.status(409).json({
+      error:
+        "This product has past orders, so deleting it would remove them from your order history. Hide it from the shop instead.",
+      canHide: true,
+    });
+  }
+
   await prisma.product.delete({ where: { id: req.params.id } });
   res.status(204).send();
 });
 
+const visibilitySchema = z.object({ isActive: z.boolean() });
+
+adminRouter.patch("/products/:id/visibility", async (req, res) => {
+  const parsed = visibilitySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid visibility value" });
+
+  const product = await prisma.product.update({
+    where: { id: req.params.id },
+    data: { isActive: parsed.data.isActive },
+  });
+  res.json(product);
+});
+
 adminRouter.get("/products", async (_req, res) => {
   const products = await prisma.product.findMany({
-    include: { variants: true, category: true },
+    include: {
+      // Deactivated pack sizes are retired, not editable — keep them out of
+      // the admin list so they don't reappear in the edit form.
+      variants: { where: { isActive: true }, orderBy: { priceInr: "asc" } },
+      category: true,
+    },
     orderBy: { createdAt: "desc" },
   });
   res.json(products);

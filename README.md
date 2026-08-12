@@ -18,6 +18,7 @@ seeds, dried fruit, saffron, coffee, and spices).
 ```bash
 cd server
 npm install
+cp .env.example .env     # then edit it — JWT_SECRET is required to boot
 npx prisma migrate dev   # creates dev.db and applies schema
 npx prisma db seed       # seeds categories, products, and the admin user
 npm run dev              # starts the API on http://localhost:4000
@@ -25,7 +26,9 @@ npm run dev              # starts the API on http://localhost:4000
 
 Admin login credentials are set in `server/.env` (`ADMIN_EMAIL` /
 `ADMIN_PASSWORD`, defaults to `admin@mehfuzdryfruits.com` /
-`Mehfuz@Admin123`). **Change these before deploying.**
+`Mehfuz@Admin123`). **Change these before deploying**, and set
+`TRUST_PROXY=true` if the API runs behind a reverse proxy so rate
+limiting sees real client IPs.
 
 ### 2. Frontend
 
@@ -36,10 +39,21 @@ npm run dev               # starts the storefront on http://localhost:5173
 ```
 
 The Vite dev server proxies `/api` requests to `http://localhost:4000`, so
-run both servers together during development.
+run both servers together during development. For a production build where
+the API lives on a different origin, set `VITE_API_URL` (e.g.
+`VITE_API_URL=https://api.example.com/api`) before `npm run build`.
 
 Visit `/admin/login` to sign in to the admin dashboard (manage products,
 pack sizes/pricing, and order status).
+
+## Data integrity
+
+Products and pack sizes that appear in past orders are never hard-deleted,
+since that would erase order history. Deleting such a product returns a 409
+and the admin UI offers to hide it from the shop instead; removing a pack
+size that has been ordered deactivates it. Anything never ordered deletes
+outright. Stock is decremented under a conditional update inside the order
+transaction, so simultaneous checkouts cannot oversell.
 
 ## Notes & assumptions
 

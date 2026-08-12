@@ -7,6 +7,7 @@ import { formatInr } from "../../lib/format";
 export function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -18,10 +19,30 @@ export function AdminProducts() {
 
   useEffect(load, []);
 
+  async function setVisibility(id: string, isActive: boolean) {
+    setError(null);
+    await api.patch(`/admin/products/${id}/visibility`, { isActive });
+    load();
+  }
+
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    await api.delete(`/admin/products/${id}`);
-    load();
+    setError(null);
+    try {
+      await api.delete(`/admin/products/${id}`);
+      load();
+    } catch (err) {
+      const res = (err as { response?: { status?: number; data?: { error?: string } } }).response;
+      // A product with order history can't be deleted without destroying
+      // those orders — offer to hide it from the shop instead.
+      if (res?.status === 409) {
+        if (confirm(`${res.data?.error ?? "This product cannot be deleted."}\n\nHide it from the shop instead?`)) {
+          await setVisibility(id, false);
+        }
+        return;
+      }
+      setError(res?.data?.error ?? "Failed to delete product.");
+    }
   }
 
   return (
@@ -35,6 +56,12 @@ export function AdminProducts() {
           + Add Product
         </Link>
       </div>
+
+      {error && (
+        <p className="mb-4 rounded-lg border border-maroon-700/40 bg-maroon-700/5 p-3 text-sm text-maroon-700">
+          {error}
+        </p>
+      )}
 
       {loading ? (
         <p className="text-brown-500">Loading...</p>
@@ -60,18 +87,24 @@ export function AdminProducts() {
                     <td className="px-4 py-3 font-medium text-brown-950">{p.name}</td>
                     <td className="px-4 py-3 text-brown-700">{p.category.name}</td>
                     <td className="px-4 py-3 text-brown-700">
-                      {min === max ? formatInr(min) : `${formatInr(min)} – ${formatInr(max)}`}
+                      {prices.length === 0
+                        ? "—"
+                        : min === max
+                          ? formatInr(min)
+                          : `${formatInr(min)} – ${formatInr(max)}`}
                     </td>
                     <td className="px-4 py-3">
-                      {p.isActive ? (
-                        <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
-                          Hidden
-                        </span>
-                      )}
+                      <button
+                        onClick={() => setVisibility(p.id, !p.isActive)}
+                        title={p.isActive ? "Hide from shop" : "Show in shop"}
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium transition ${
+                          p.isActive
+                            ? "bg-green-100 text-green-800 hover:bg-green-200"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        {p.isActive ? "Active" : "Hidden"}
+                      </button>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

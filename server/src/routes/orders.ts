@@ -4,6 +4,7 @@ import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { generateOrderNumber } from "../lib/orderNumber";
 import { requireAdmin, AuthedRequest } from "../middleware/auth";
+import { HttpError } from "../middleware/errors";
 
 export const ordersRouter = Router();
 
@@ -104,10 +105,20 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
     });
 
     for (const item of data.items) {
-      await tx.variant.update({
-        where: { id: item.variantId },
+      // Guard the decrement on stock still being sufficient so two orders
+      // placed at the same time can't drive stock negative. A miss here
+      // means someone else took the last of it — roll the whole order back.
+      const { count } = await tx.variant.updateMany({
+        where: { id: item.variantId, stock: { gte: item.quantity } },
         data: { stock: { decrement: item.quantity } },
       });
+      if (count === 0) {
+        const variant = variants.find((v) => v.id === item.variantId);
+        throw new HttpError(
+          409,
+          `Sorry, ${variant?.product.name ?? "an item"} just sold out. Please adjust your cart and try again.`
+        );
+      }
     }
 
     return created;
