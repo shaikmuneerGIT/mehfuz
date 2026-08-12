@@ -15,7 +15,10 @@ services:
     healthCheckPath: /api/health
 
     buildCommand: npm run render-build
-    startCommand: npm start
+    # Migrations and seeding run here, not in buildCommand — Render's
+    # persistent disk is only mounted on the running instance, so it does
+    # not exist yet during the build step.
+    startCommand: npm run render-start
 
     disk:
       name: mehfuz-data
