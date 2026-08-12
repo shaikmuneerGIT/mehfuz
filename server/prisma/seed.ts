@@ -135,6 +135,16 @@ async function main() {
     "Coorg & Guntur, India"
   );
 
+  // The seed runs on every deploy so the admin account and categories stay
+  // in sync. Products are only created on a fresh database — otherwise each
+  // deploy would duplicate the catalog and bury price edits made in the
+  // admin panel.
+  const existingProducts = await prisma.product.count();
+  if (existingProducts > 0) {
+    console.log(`Catalog already has ${existingProducts} products — leaving them as they are.`);
+    return;
+  }
+
   // ---- Figs ----
   await createProduct({
     name: "Anjeer – Premium Jumbo",

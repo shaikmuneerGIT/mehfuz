@@ -1,0 +1,44 @@
+# Render Blueprint — deploys the Mehfuz shop as a single web service that
+# serves both the API and the built storefront on one URL.
+#
+# The persistent disk is what keeps your orders and uploaded product photos
+# alive across deploys. Without it, Render's filesystem resets on every
+# deploy and you would lose the database.
+
+services:
+  - type: web
+    name: mehfuz
+    runtime: node
+    plan: starter # required for the disk below; "free" cannot mount disks
+    region: singapore # closest Render region to India
+    branch: main
+    healthCheckPath: /api/health
+
+    buildCommand: npm run render-build
+    startCommand: npm start
+
+    disk:
+      name: mehfuz-data
+      mountPath: /var/data
+      sizeGB: 1
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # SQLite file lives on the persistent disk, not the ephemeral filesystem.
+      - key: DATABASE_URL
+        value: file:/var/data/mehfuz.db
+      - key: UPLOAD_DIR
+        value: /var/data/uploads
+      - key: TRUST_PROXY
+        value: "true"
+      - key: NODE_ENV
+        value: production
+      # Render generates a strong random secret on first deploy.
+      - key: JWT_SECRET
+        generateValue: true
+      # Set these two in the Render dashboard before the first deploy.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

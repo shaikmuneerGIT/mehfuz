@@ -4,7 +4,12 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAdmin } from "../middleware/auth";
 
-export const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
+// On a host with ephemeral storage this must point at a mounted disk, or
+// uploaded photos disappear on the next deploy.
+export const UPLOAD_DIR = process.env.UPLOAD_DIR
+  ? path.resolve(process.env.UPLOAD_DIR)
+  : path.resolve(process.cwd(), "uploads");
+
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const ALLOWED = new Map([

@@ -1,5 +1,7 @@
 import { config } from "dotenv";
 config({ quiet: true });
+import path from "node:path";
+import fs from "node:fs";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -60,6 +62,38 @@ app.use("/api/auth", authLimiter, authRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
+
+// Unmatched API routes are a 404 regardless of the storefront below.
+app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));
+
+// In production this process also serves the built React app, so the whole
+// shop runs on a single origin with no CORS and no separate deployment.
+const CLIENT_DIST =
+  process.env.CLIENT_DIST ?? path.resolve(__dirname, "../../client/dist");
+
+if (fs.existsSync(path.join(CLIENT_DIST, "index.html"))) {
+  // Hashed asset filenames are safe to cache hard; index.html must not be,
+  // or browsers keep loading the previous release after a deploy.
+  app.use(
+    express.static(CLIENT_DIST, {
+      maxAge: "1y",
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
+      },
+    })
+  );
+
+  // Client-side routes (/shop, /admin/…) must return index.html so a direct
+  // visit or refresh doesn't 404.
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+    res.sendFile(path.join(CLIENT_DIST, "index.html"));
+  });
+  console.log(`Serving storefront from ${CLIENT_DIST}`);
+} else {
+  console.log("No client build found — running API only (use the Vite dev server).");
+}
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 
