@@ -46,32 +46,65 @@ the API lives on a different origin, set `VITE_API_URL` (e.g.
 Visit `/admin/login` to sign in to the admin dashboard (manage products,
 pack sizes/pricing, and order status).
 
-## Deploying (Render)
+## Deploying
 
-The app deploys as a **single service**: in production the Express server
-also serves the built React app, so the whole shop runs on one URL with no
-CORS to configure. `render.yaml` in the repo root defines this as a Render
-Blueprint, including a persistent disk — without it, Render's filesystem
-resets on every deploy and both the SQLite database and any uploaded product
-photos would be lost.
+In production the Express server also serves the built React app, so the
+whole shop runs on **one URL with no CORS to configure**, regardless of
+which of the two paths below you use.
 
-1. Push this repo to GitHub (already done if you're reading this there).
-2. In the Render dashboard: **New → Blueprint**, connect the repo. Render
-   reads `render.yaml` and provisions the service and disk automatically.
-3. Before the first deploy, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` in the
-   service's Environment tab (`render.yaml` intentionally leaves these for
-   you to set rather than committing real credentials). `JWT_SECRET` is
-   generated for you.
-4. Deploy. The build runs `npm run render-build`, which installs both
-   `client/` and `server/`, builds both, applies Prisma migrations, and
-   seeds the catalog + admin user (seeding is safe to re-run — see below).
-5. Your shop is live at the `.onrender.com` URL Render assigns. Point a
-   custom domain at it later from the service's Settings tab whenever you
-   buy one.
+### Option A: a VPS (e.g. Hostinger), with Docker — cheapest to run
 
-The `starter` plan is required because Render's free tier cannot mount a
-persistent disk. Deploying without one works but is **not durable** — every
-deploy wipes the database and uploaded photos back to the seeded catalog.
+Everything needed is in `Dockerfile`, `docker-compose.yml`, and `deploy/`.
+
+1. **Buy a VPS.** Any Ubuntu 22.04/24.04 VPS works — Hostinger's cheapest
+   VPS plan is a common India-friendly choice, and you can buy your domain
+   from the same account. Note the server's public IP and root password.
+2. **SSH in** (`ssh root@<server-ip>`) and run the bootstrap script:
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/shaikmuneerGIT/mehfuz/main/deploy/bootstrap-vps.sh -o bootstrap.sh
+   bash bootstrap.sh https://github.com/shaikmuneerGIT/mehfuz.git
+   ```
+   This installs Docker, nginx, and a firewall, clones the repo to
+   `/opt/mehfuz`, and points nginx at the app.
+3. **Configure secrets:**
+   ```bash
+   cd /opt/mehfuz
+   cp .env.production.example .env
+   nano .env   # set JWT_SECRET (openssl rand -hex 48), ADMIN_EMAIL, ADMIN_PASSWORD
+   ```
+4. **Deploy:** `./deploy/deploy.sh`. Visit `http://<server-ip>` — the shop
+   should be live. Redeploying later after a `git push` is the same one
+   command.
+5. **Point your domain at it.** At your domain registrar's DNS settings,
+   add an **A record**: host `@` (and another for `www`) → the server's IP.
+   DNS changes can take up to a few hours to propagate.
+6. **Add HTTPS**, once DNS has propagated:
+   ```bash
+   apt-get install -y certbot python3-certbot-nginx
+   certbot --nginx -d mehfuz.com -d www.mehfuz.com
+   ```
+   Certbot edits the nginx config and sets up auto-renewal for you. Update
+   `CLIENT_ORIGIN` in `.env` to `https://mehfuz.com,https://www.mehfuz.com`
+   and re-run `./deploy/deploy.sh`.
+
+The database and uploaded photos live in a named Docker volume
+(`mehfuz-data`), so they survive rebuilds and redeploys — only
+`docker compose down -v` (note the `-v`) would ever remove them.
+
+### Option B: Render — more managed, costs more
+
+`render.yaml` in the repo root defines this as a Render Blueprint.
+
+1. In the Render dashboard: **New → Blueprint**, connect this GitHub repo.
+2. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` when prompted (`JWT_SECRET` is
+   generated for you).
+3. Deploy. Render installs, builds, migrates, and seeds automatically.
+4. Live at the `.onrender.com` URL Render assigns; add a custom domain
+   later from the service's Settings tab.
+
+Requires the `starter` plan (~$7.25/mo total with the disk) — Render's free
+tier can't mount a persistent disk, so the database and photos would be
+wiped on every deploy.
 
 ## Data integrity
 
