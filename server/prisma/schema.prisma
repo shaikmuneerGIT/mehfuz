@@ -24,6 +24,7 @@ model Product {
   description   String?
   origin        String?
   badge         String?
+  imageUrl      String?
   isFeatured    Boolean      @default(false)
   isActive      Boolean      @default(true)
   categoryId    String

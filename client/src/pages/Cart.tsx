@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { formatInr } from "../lib/format";
-import { ProductTile } from "../components/ProductTile";
+import { ProductImage } from "../components/ProductImage";
 
 export function Cart() {
   const { lines, updateQuantity, removeLine, subtotalInr } = useCart();
@@ -33,10 +33,10 @@ export function Cart() {
               key={line.variantId}
               className="flex items-center gap-4 rounded-xl border border-gold-500/30 bg-white p-4"
             >
-              <ProductTile
+              <ProductImage
                 name={line.productName}
-                categorySlug=""
-                className="h-16 w-16 flex-shrink-0 rounded-lg"
+                corners={false}
+                className="h-16 w-16 flex-shrink-0 rounded-lg border border-gold-500/30"
               />
               <div className="flex-1">
                 <Link

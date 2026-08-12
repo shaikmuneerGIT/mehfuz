@@ -8,6 +8,7 @@ import { catalogRouter } from "./routes/catalog";
 import { authRouter } from "./routes/auth";
 import { ordersRouter } from "./routes/orders";
 import { adminRouter } from "./routes/admin";
+import { uploadsRouter, UPLOAD_DIR } from "./routes/uploads";
 import { errorHandler } from "./middleware/errors";
 
 if (!process.env.JWT_SECRET) {
@@ -44,10 +45,21 @@ const authLimiter = rateLimit({
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, service: "mehfuz-api" }));
 
+// Uploaded product photos. crossOriginResourcePolicy is relaxed so the
+// storefront can render them when it runs on a different origin.
+app.use(
+  "/uploads",
+  express.static(UPLOAD_DIR, {
+    maxAge: "7d",
+    setHeaders: (res) => res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
+  })
+);
+
 app.use("/api/catalog", catalogRouter);
 app.use("/api/auth", authLimiter, authRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/uploads", uploadsRouter);
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 

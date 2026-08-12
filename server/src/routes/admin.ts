@@ -67,6 +67,9 @@ const productSchema = z.object({
   description: z.string().optional(),
   origin: z.string().optional(),
   badge: z.string().optional(),
+  // Either an uploaded path (/uploads/…) or an absolute URL. Empty means
+  // "use the built-in illustration".
+  imageUrl: z.string().optional(),
   isFeatured: z.boolean().optional(),
   isActive: z.boolean().optional(),
   categoryId: z.string(),

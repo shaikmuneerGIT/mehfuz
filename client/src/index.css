@@ -31,6 +31,17 @@ body {
   font-family: var(--font-sans);
 }
 
+/* Aged-parchment ground: warm corner washes plus a fine grain, echoing the
+   printed poster rather than a flat web background. */
+.parchment {
+  background-color: var(--color-cream-50);
+  background-image:
+    radial-gradient(ellipse at 12% 0%, rgba(207, 154, 60, 0.16), transparent 55%),
+    radial-gradient(ellipse at 88% 6%, rgba(207, 154, 60, 0.13), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(138, 94, 31, 0.12), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
 .font-display {
   font-family: var(--font-serif);
 }

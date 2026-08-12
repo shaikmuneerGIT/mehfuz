@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Product } from "../types";
 import { formatInr } from "../lib/format";
-import { ProductTile } from "../components/ProductTile";
+import { ProductImage } from "../components/ProductImage";
+import { OrnateFrame, Divider, Fleuron } from "../components/art/Ornaments";
 import { useCart } from "../context/CartContext";
 
 export function ProductDetail() {
@@ -71,6 +72,7 @@ export function ProductDetail() {
   }
 
   return (
+    <div className="parchment">
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
       <div className="mb-6 text-sm text-brown-500">
         <Link to="/shop" className="hover:text-gold-700">Shop</Link>
@@ -83,25 +85,35 @@ export function ProductDetail() {
       </div>
 
       <div className="grid gap-10 md:grid-cols-2">
-        <ProductTile
-          name={product.name}
-          categorySlug={product.category.slug}
-          badge={product.badge}
-          className="w-full rounded-2xl shadow-md"
-        />
+        <OrnateFrame className="h-fit bg-cream-50 shadow-md">
+          <ProductImage
+            name={product.name}
+            categorySlug={product.category.slug}
+            imageUrl={product.imageUrl}
+            badge={product.badge}
+            corners={false}
+            className="rounded-[6px]"
+          />
+        </OrnateFrame>
 
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-gold-700">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-gold-700">
             {product.category.name}
           </p>
-          <h1 className="font-display mt-1 text-3xl font-bold text-brown-950">{product.name}</h1>
+          <h1 className="font-display mt-2 text-3xl font-bold text-brown-950">{product.name}</h1>
           {product.origin && (
-            <p className="mt-1 text-sm text-brown-500">Origin: {product.origin}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-sm text-brown-500">
+              <Fleuron className="h-3 w-3 text-gold-600" />
+              Origin: {product.origin}
+            </p>
           )}
+          <Divider className="mt-4 max-w-[220px]" />
           <p className="mt-4 text-brown-700">{product.description}</p>
 
           <div className="mt-6">
-            <div className="mb-2 text-sm font-semibold text-brown-800">Select pack size</div>
+            <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-brown-800">
+              Select pack size
+            </div>
             <div className="flex flex-wrap gap-2">
               {product.variants.map((v) => (
                 <button
@@ -158,8 +170,13 @@ export function ProductDetail() {
               Buy Now
             </button>
           </div>
+
+          <p className="mt-6 text-xs text-brown-500">
+            Free delivery on orders above ₹999 · Cash on Delivery available
+          </p>
         </div>
       </div>
+    </div>
     </div>
   );
 }

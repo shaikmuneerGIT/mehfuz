@@ -21,6 +21,20 @@ export function errorHandler(
     return res.status(err.status).json({ error: err.message });
   }
 
+  // Upload rejections (file too large, wrong type) are user errors, not 500s.
+  const name = (err as { name?: string })?.name;
+  const message = (err as { message?: string })?.message ?? "";
+  if (name === "MulterError") {
+    return res.status(400).json({
+      error: message.includes("File too large")
+        ? "That image is larger than the 5MB limit."
+        : `Upload failed: ${message}`,
+    });
+  }
+  if (message.startsWith("Only JPEG")) {
+    return res.status(400).json({ error: message });
+  }
+
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     // Record not found
     if (err.code === "P2025") {

@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Category, Product } from "../types";
 import { ProductCard } from "../components/ProductCard";
+import { Divider } from "../components/art/Ornaments";
 
 export function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,11 +46,17 @@ export function Shop() {
   }
 
   return (
+    <div className="parchment min-h-screen">
     <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-gold-700">Catalog</p>
-          <h1 className="font-display text-3xl font-bold text-brown-950">Shop All Products</h1>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-700">Catalog</p>
+          <h1 className="font-display mt-1 text-3xl font-bold text-brown-950">
+            {activeCategory
+              ? (categories.find((c) => c.slug === activeCategory)?.name ?? "Shop")
+              : "Shop All Products"}
+          </h1>
+          <Divider className="mt-3 max-w-[200px]" />
         </div>
         <form onSubmit={submitSearch} className="flex gap-2">
           <input
@@ -98,12 +105,18 @@ export function Shop() {
       ) : products.length === 0 ? (
         <p className="text-brown-500">No products found.</p>
       ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-          {products.map((p) => (
-            <ProductCard key={p.id} product={p} />
-          ))}
-        </div>
+        <>
+          <p className="mb-4 text-xs text-brown-500">
+            {products.length} product{products.length === 1 ? "" : "s"}
+          </p>
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
+            {products.map((p) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
+          </div>
+        </>
       )}
+    </div>
     </div>
   );
 }

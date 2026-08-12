@@ -22,6 +22,7 @@ export interface Product {
   description?: string | null;
   origin?: string | null;
   badge?: string | null;
+  imageUrl?: string | null;
   isFeatured: boolean;
   isActive: boolean;
   categoryId: string;

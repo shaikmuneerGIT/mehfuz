@@ -13,6 +13,7 @@ api.interceptors.request.use((config) => {
   // checkout calls have no business carrying it.
   const needsAuth =
     config.url?.startsWith("/admin") ||
+    config.url?.startsWith("/uploads") ||
     (config.url?.startsWith("/orders") && config.method !== "post");
 
   const token = localStorage.getItem(TOKEN_KEY);

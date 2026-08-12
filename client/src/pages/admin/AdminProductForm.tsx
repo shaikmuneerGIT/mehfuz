@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../api/client";
 import type { Category, Product } from "../../types";
+import { ProductImage } from "../../components/ProductImage";
 
 interface VariantForm {
   id?: string;
@@ -22,6 +23,8 @@ export function AdminProductForm() {
   const [description, setDescription] = useState("");
   const [origin, setOrigin] = useState("");
   const [badge, setBadge] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [isFeatured, setIsFeatured] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -46,6 +49,7 @@ export function AdminProductForm() {
       setDescription(p.description ?? "");
       setOrigin(p.origin ?? "");
       setBadge(p.badge ?? "");
+      setImageUrl(p.imageUrl ?? "");
       setCategoryId(p.categoryId);
       setIsFeatured(p.isFeatured);
       setIsActive(p.isActive);
@@ -72,6 +76,24 @@ export function AdminProductForm() {
     setVariants((prev) => prev.filter((_, i) => i !== index));
   }
 
+  async function handleImageUpload(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      const res = await api.post<{ url: string }>("/uploads", form);
+      setImageUrl(res.data.url);
+    } catch (err) {
+      setError(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          "Image upload failed."
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -82,6 +104,7 @@ export function AdminProductForm() {
         description,
         origin,
         badge: badge || undefined,
+        imageUrl: imageUrl || undefined,
         categoryId,
         isFeatured,
         isActive,
@@ -136,6 +159,52 @@ export function AdminProductForm() {
             <span className="mb-1 block font-medium text-brown-800">Badge (optional)</span>
             <input value={badge} onChange={(e) => setBadge(e.target.value)} className="input" />
           </label>
+          <div className="block text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-brown-800">Product photo</span>
+            <div className="flex items-start gap-4 rounded-lg border border-gold-500/40 bg-white p-3">
+              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg border border-gold-500/30">
+                <ProductImage
+                  name={name || "Product"}
+                  imageUrl={imageUrl}
+                  corners={false}
+                  className="h-full w-full"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(file);
+                  }}
+                  className="block w-full text-xs text-brown-700 file:mr-3 file:rounded-full file:border-0 file:bg-brown-950 file:px-4 file:py-1.5 file:text-xs file:font-semibold file:text-gold-300 hover:file:bg-brown-900"
+                />
+                <p className="mt-1 text-xs text-brown-500">
+                  {uploading
+                    ? "Uploading…"
+                    : "JPEG, PNG, WebP or AVIF · up to 5MB. Leave empty to use the built-in illustration."}
+                </p>
+                <input
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="…or paste an image URL"
+                  className="input mt-2 text-xs"
+                />
+                {imageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setImageUrl("")}
+                    className="mt-2 text-xs font-medium text-maroon-700 hover:underline"
+                  >
+                    Remove photo
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
           <label className="block text-sm sm:col-span-2">
             <span className="mb-1 block font-medium text-brown-800">Category</span>
             <select
