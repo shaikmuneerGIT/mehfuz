@@ -1,10 +1,19 @@
 import { Router } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { generateOrderNumber } from "../lib/orderNumber";
 import { requireAdmin, AuthedRequest } from "../middleware/auth";
 
 export const ordersRouter = Router();
+
+const checkoutLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many orders placed. Please try again later." },
+});
 
 const checkoutSchema = z.object({
   customerName: z.string().min(2),
@@ -29,7 +38,7 @@ const checkoutSchema = z.object({
 const SHIPPING_THRESHOLD_INR = 999;
 const SHIPPING_FEE_INR = 79;
 
-ordersRouter.post("/", async (req, res) => {
+ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   const parsed = checkoutSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid order data", details: parsed.error.flatten() });
@@ -134,7 +143,7 @@ ordersRouter.patch("/:id/status", requireAdmin, async (req: AuthedRequest, res) 
     return res.status(400).json({ error: "Invalid status" });
   }
   const order = await prisma.order.update({
-    where: { id: req.params.id },
+    where: { id: req.params.id as string },
     data: { status: parsed.data.status },
   });
   res.json(order);

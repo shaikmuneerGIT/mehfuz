@@ -1,4 +1,5 @@
-import "dotenv/config";
+import { config } from "dotenv";
+config({ quiet: true });
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
 
