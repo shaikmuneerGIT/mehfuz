@@ -81,10 +81,11 @@ Everything needed is in `Dockerfile`, `docker-compose.yml`, and `deploy/`.
 6. **Add HTTPS**, once DNS has propagated:
    ```bash
    apt-get install -y certbot python3-certbot-nginx
-   certbot --nginx -d mehfuz.com -d www.mehfuz.com
+   certbot --nginx -d mehfuzdryfruits.in -d www.mehfuzdryfruits.in
    ```
    Certbot edits the nginx config and sets up auto-renewal for you. Update
-   `CLIENT_ORIGIN` in `.env` to `https://mehfuz.com,https://www.mehfuz.com`
+   `CLIENT_ORIGIN` in `.env` to
+   `https://mehfuzdryfruits.in,https://www.mehfuzdryfruits.in`
    and re-run `./deploy/deploy.sh`.
 
 The database and uploaded photos live in a named Docker volume
