@@ -1,9 +1,0 @@
-**/node_modules
-**/dist
-server/prisma/dev.db
-server/prisma/dev.db-journal
-server/uploads
-**/.env
-.git
-.e2e
-.scratch*

@@ -7,8 +7,9 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
-      '/api': 'http://localhost:4000',
-      '/uploads': 'http://localhost:4000',
+      // ASP.NET Core API (previously Node/Express on :4000).
+      '/api': 'http://localhost:5000',
+      '/uploads': 'http://localhost:5000',
     },
   },
 })

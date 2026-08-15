@@ -1,120 +1,134 @@
 # Mehfuz — Premium Dry Fruits & Commodities
 
-Full-stack e-commerce app for Mehfuz: a React storefront and an Express/Prisma
-API, seeded with the Mehfuz product catalog (Anjeer, dates, nuts, raisins,
-seeds, dried fruit, saffron, coffee, and spices).
+Full-stack e-commerce app for Mehfuz: a React storefront and an **ASP.NET
+Core / C# / MS SQL Server** API, seeded with the Mehfuz product catalog
+(Anjeer, dates, nuts, raisins, seeds, dried fruit, saffron, coffee, and
+spices), built to deploy on Windows Server hosting.
 
 ## Stack
 
-- **server/** — Express + TypeScript + Prisma ORM + SQLite, JWT-authenticated
-  admin API, Zod request validation.
+- **api/** — ASP.NET Core 10 Web API (C#), Entity Framework Core, MS SQL
+  Server, JWT-authenticated admin endpoints, rate limiting.
 - **client/** — React + Vite + TypeScript + Tailwind CSS, React Router,
-  storefront + admin dashboard.
+  storefront + admin dashboard. Unchanged from the original build — it
+  only talks to a REST API, so it doesn't care that the backend is C# now.
 
-## Getting started
+In production the API also serves the built React app, so the whole shop
+runs on **one process, one URL, no CORS to configure**.
 
-### 1. Backend
+## Getting started (local development)
 
-```bash
-cd server
-npm install
-cp .env.example .env     # then edit it — JWT_SECRET is required to boot
-npx prisma migrate dev   # creates dev.db and applies schema
-npx prisma db seed       # seeds categories, products, and the admin user
-npm run dev              # starts the API on http://localhost:4000
+### Prerequisites
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- SQL Server (Developer or Express edition — free) running locally, or
+  point the connection string at any reachable SQL Server instance
+- Node.js 20+ (for the React client)
+
+### 1. API
+
+```powershell
+cd api
+dotnet user-secrets init
+dotnet user-secrets set "Jwt:Secret" "<paste output of: node -e \"console.log(require('crypto').randomBytes(48).toString('hex'))\">"
+dotnet user-secrets set "AdminSeed:Password" "<choose an admin password>"
+dotnet ef database update   # applies migrations, creating MehfuzDb
+dotnet run                  # starts the API on http://localhost:5000
 ```
 
-Admin login credentials are set in `server/.env` (`ADMIN_EMAIL` /
-`ADMIN_PASSWORD`, defaults to `admin@mehfuzdryfruits.com` /
-`Mehfuz@Admin123`). **Change these before deploying**, and set
-`TRUST_PROXY=true` if the API runs behind a reverse proxy so rate
-limiting sees real client IPs.
+The connection string defaults to `Server=localhost;Database=MehfuzDb;Trusted_Connection=True;`
+(Windows Authentication) — see `appsettings.json` to point at a different
+server or use SQL auth instead.
 
-### 2. Frontend
+On first boot the app automatically applies pending migrations and seeds
+the category/product catalog plus the admin user
+(`AdminSeed:Email`, default `admin@mehfuzdryfruits.com`). Both are safe to
+re-run on every restart — see [Data integrity](#data-integrity).
+
+### 2. Client
 
 ```bash
 cd client
 npm install
-npm run dev               # starts the storefront on http://localhost:5173
+npm run dev   # starts the storefront on http://localhost:5173
 ```
 
-The Vite dev server proxies `/api` requests to `http://localhost:4000`, so
-run both servers together during development. For a production build where
-the API lives on a different origin, set `VITE_API_URL` (e.g.
-`VITE_API_URL=https://api.example.com/api`) before `npm run build`.
+The Vite dev server proxies `/api` and `/uploads` to `http://localhost:5000`.
 
-Visit `/admin/login` to sign in to the admin dashboard (manage products,
-pack sizes/pricing, and order status).
+Visit `/admin/login` to sign in to the admin dashboard.
 
-## Deploying
+## Deploying to Windows Server (Plesk / IIS)
 
-In production the Express server also serves the built React app, so the
-whole shop runs on **one URL with no CORS to configure**, regardless of
-which of the two paths below you use.
+`publish.ps1` at the repo root builds both the client and API into a
+single self-contained folder ready to upload:
 
-### Option A: a VPS (e.g. Hostinger), with Docker — cheapest to run
+```powershell
+.\publish.ps1
+```
 
-Everything needed is in `Dockerfile`, `docker-compose.yml`, and `deploy/`.
+This produces `.\publish\` containing the compiled API (bundled with its
+own .NET runtime — no dependency on the server having the ASP.NET Core
+Hosting Bundle installed), a generated `web.config` wired for IIS's
+ASP.NET Core Module, and the built React app under `client-dist\`.
 
-1. **Buy a VPS.** Any Ubuntu 22.04/24.04 VPS works — Hostinger's cheapest
-   VPS plan is a common India-friendly choice, and you can buy your domain
-   from the same account. Note the server's public IP and root password.
-2. **SSH in** (`ssh root@<server-ip>`) and run the bootstrap script:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/shaikmuneerGIT/mehfuz/main/deploy/bootstrap-vps.sh -o bootstrap.sh
-   bash bootstrap.sh https://github.com/shaikmuneerGIT/mehfuz.git
-   ```
-   This installs Docker, nginx, and a firewall, clones the repo to
-   `/opt/mehfuz`, and points nginx at the app.
-3. **Configure secrets:**
-   ```bash
-   cd /opt/mehfuz
-   cp .env.production.example .env
-   nano .env   # set JWT_SECRET (openssl rand -hex 48), ADMIN_EMAIL, ADMIN_PASSWORD
-   ```
-4. **Deploy:** `./deploy/deploy.sh`. Visit `http://<server-ip>` — the shop
-   should be live. Redeploying later after a `git push` is the same one
-   command.
-5. **Point your domain at it.** At your domain registrar's DNS settings,
-   add an **A record**: host `@` (and another for `www`) → the server's IP.
-   DNS changes can take up to a few hours to propagate.
-6. **Add HTTPS**, once DNS has propagated:
-   ```bash
-   apt-get install -y certbot python3-certbot-nginx
-   certbot --nginx -d mehfuzdryfruits.in -d www.mehfuzdryfruits.in
-   ```
-   Certbot edits the nginx config and sets up auto-renewal for you. Update
-   `CLIENT_ORIGIN` in `.env` to
-   `https://mehfuzdryfruits.in,https://www.mehfuzdryfruits.in`
-   and re-run `./deploy/deploy.sh`.
+### On the server (Plesk)
 
-The database and uploaded photos live in a named Docker volume
-(`mehfuz-data`), so they survive rebuilds and redeploys — only
-`docker compose down -v` (note the `-v`) would ever remove them.
+1. **Upload**: FTP the *contents* of `.\publish\` (not the folder itself)
+   to your domain's `httpdocs` directory (or wherever Plesk's IIS site
+   root points).
+2. **Database**: In Plesk → your domain → **Databases**, create a new
+   **MS SQL Server** database and a user for it. If MS SQL isn't listed
+   as an option, ask your host (this needs a Windows hosting plan with
+   SQL Server support, not just MySQL).
+3. **Configuration**: ASP.NET Core reads configuration from environment
+   variables using `__` as the section separator. In Plesk → your domain
+   → **Hosting Settings** (or **IIS Web Hosting Settings**), look for
+   **.NET / Environment Variables** and set:
+   - `ConnectionStrings__Default` — the connection string Plesk shows you
+     for the database you just created
+   - `Jwt__Secret` — a long random string (generate one the same way as
+     in local dev)
+   - `AdminSeed__Email` / `AdminSeed__Password` — your real admin login
+   - `ClientOrigins` — `https://mehfuzdryfruits.in,https://www.mehfuzdryfruits.in`
+   - `UploadDir` — an absolute path outside `httpdocs` if your plan
+     resets the web root on redeploy, otherwise a subfolder like
+     `uploads` is fine
+4. **Application pool**: Plesk's IIS settings need the site's .NET/ASP.NET
+   Core support enabled — if you only see classic ASP.NET/.NET Framework
+   options, ask HostingRaja support to enable ASP.NET Core hosting (via
+   the ASP.NET Core Module) for the site, since Plesk on Windows supports
+   this but it isn't always turned on by default per-domain.
+5. **First run**: visiting the site triggers the same automatic
+   migrate + seed as local dev — no separate step needed.
+6. Once DNS for `mehfuzdryfruits.in` points at this server, ask Plesk to
+   issue a **Let's Encrypt** certificate from the domain's **SSL/TLS
+   Certificates** tab for HTTPS (free, a few clicks).
 
-### Option B: Render — more managed, costs more
+### Redeploying after changes
 
-`render.yaml` in the repo root defines this as a Render Blueprint.
-
-1. In the Render dashboard: **New → Blueprint**, connect this GitHub repo.
-2. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` when prompted (`JWT_SECRET` is
-   generated for you).
-3. Deploy. Render installs, builds, migrates, and seeds automatically.
-4. Live at the `.onrender.com` URL Render assigns; add a custom domain
-   later from the service's Settings tab.
-
-Requires the `starter` plan (~$7.25/mo total with the disk) — Render's free
-tier can't mount a persistent disk, so the database and photos would be
-wiped on every deploy.
+Re-run `.\publish.ps1` and re-upload the contents of `.\publish\` — your
+data isn't affected since it lives in the SQL Server database, not in
+the deployed files (except `UploadDir`, which is why step 3 above
+recommends keeping it outside the folder you overwrite on redeploy if
+your host wipes `httpdocs` on upload).
 
 ## Data integrity
 
 Products and pack sizes that appear in past orders are never hard-deleted,
-since that would erase order history. Deleting such a product returns a 409
-and the admin UI offers to hide it from the shop instead; removing a pack
-size that has been ordered deactivates it. Anything never ordered deletes
-outright. Stock is decremented under a conditional update inside the order
-transaction, so simultaneous checkouts cannot oversell.
+since that would erase order history. Deleting such a product returns a
+409 and the admin UI offers to hide it from the shop instead; removing a
+pack size that has been ordered deactivates it instead of removing it.
+Anything never ordered deletes outright. Stock is decremented with a
+conditional `UPDATE ... WHERE Stock >= @quantity` executed directly
+against the database inside the order's transaction (EF Core's
+`ExecuteUpdateAsync`), so two simultaneous checkouts can't oversell the
+same pack size — verified with concurrent requests against a
+single-unit stock.
+
+The database seed only creates products on a fresh database; categories
+and the admin account resync on every restart, but re-running the seed
+against an already-populated catalog never duplicates products or
+overwrites price edits made from the admin panel.
 
 ## Notes & assumptions
 
@@ -129,7 +143,8 @@ transaction, so simultaneous checkouts cannot oversell.
   live.
 - Checkout only supports **Cash on Delivery**; no payment gateway is wired
   up. Free shipping over ₹999, flat ₹79 shipping otherwise (both easy to
-  change in `server/src/routes/orders.ts` and `client/src/pages/Checkout.tsx`).
-- Product imagery: each product has an `imageUrl`. Upload a photo (or paste
+  change in `api/Controllers/OrdersController.cs` and
+  `client/src/pages/Checkout.tsx`).
+- Product imagery: each product has an `ImageUrl`. Upload a photo (or paste
   a URL) from the admin product form; until one is set, the storefront shows
   a hand-drawn illustration matched to the product.

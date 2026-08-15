@@ -1,17 +1,19 @@
-node_modules/
-dist/
-build/
+# .NET build output
+api/bin/
+api/obj/
+api/client-dist/
+publish/
 
-# Env files
-server/.env
-!server/.env.example
-
-# SQLite database
-server/prisma/dev.db
-server/prisma/dev.db-journal
+# Node (client)
+client/node_modules/
+client/dist/
 
 # Uploaded product photos
-server/uploads/
+api/uploads/
+
+# Stray Plesk placeholder that sometimes syncs into this folder locally —
+# not part of the app, never intentionally committed.
+/index.html
 
 # Logs
 *.log
