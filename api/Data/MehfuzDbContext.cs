@@ -11,6 +11,8 @@ public class MehfuzDbContext(DbContextOptions<MehfuzDbContext> options) : DbCont
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderItem> OrderItems => Set<OrderItem>();
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
+    public DbSet<StockReceipt> StockReceipts => Set<StockReceipt>();
+    public DbSet<StockReceiptItem> StockReceiptItems => Set<StockReceiptItem>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -66,6 +68,29 @@ public class MehfuzDbContext(DbContextOptions<MehfuzDbContext> options) : DbCont
         b.Entity<AdminUser>(e =>
         {
             e.HasIndex(x => x.Email).IsUnique();
+        });
+
+        b.Entity<StockReceipt>(e =>
+        {
+            e.HasOne(x => x.Product)
+                .WithMany()
+                .HasForeignKey(x => x.ProductId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        b.Entity<StockReceiptItem>(e =>
+        {
+            e.HasOne(x => x.StockReceipt)
+                .WithMany(r => r.Items)
+                .HasForeignKey(x => x.StockReceiptId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Snapshot label means this survives the variant being renamed
+            // or retired, so restrict rather than cascade the FK too.
+            e.HasOne(x => x.Variant)
+                .WithMany()
+                .HasForeignKey(x => x.VariantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         // Money columns are plain integers (paise-free INR, matches the Node app) —

@@ -7,6 +7,8 @@ interface Summary {
   orderCount: number;
   pendingOrders: number;
   totalRevenueInr: number;
+  totalStockCostInr: number;
+  profitInr: number;
 }
 
 export function AdminDashboard() {
@@ -24,6 +26,15 @@ export function AdminDashboard() {
       label: "Total Revenue",
       value: summary ? formatInr(summary.totalRevenueInr) : "—",
     },
+    {
+      label: "Stock Cost (Paid to Suppliers)",
+      value: summary ? formatInr(summary.totalStockCostInr) : "—",
+    },
+    {
+      label: "Profit",
+      value: summary ? formatInr(summary.profitInr) : "—",
+      highlight: (summary?.profitInr ?? 0) >= 0 ? "positive" : "negative",
+    },
   ];
 
   return (
@@ -35,10 +46,20 @@ export function AdminDashboard() {
             <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
               {c.label}
             </div>
-            <div className="font-display mt-1 text-2xl font-bold text-brown-950">{c.value}</div>
+            <div
+              className={`font-display mt-1 text-2xl font-bold ${
+                c.highlight === "negative" ? "text-maroon-700" : "text-brown-950"
+              }`}
+            >
+              {c.value}
+            </div>
           </div>
         ))}
       </div>
+      <p className="mt-4 text-xs text-brown-500">
+        Profit = total order revenue − total stock cost recorded on the Stock page. Add supplier
+        deliveries there to keep this accurate.
+      </p>
     </div>
   );
 }

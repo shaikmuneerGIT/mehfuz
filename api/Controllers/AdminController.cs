@@ -210,7 +210,8 @@ public class AdminController(MehfuzDbContext db) : ControllerBase
         var revenue = await db.Orders
             .Where(o => o.Status != OrderStatus.Cancelled)
             .SumAsync(o => (int?)o.TotalInr) ?? 0;
+        var stockCost = await db.StockReceipts.SumAsync(r => (int?)r.TotalCostInr) ?? 0;
 
-        return Ok(new AdminSummaryDto(productCount, orderCount, pendingOrders, revenue));
+        return Ok(new AdminSummaryDto(productCount, orderCount, pendingOrders, revenue, stockCost, revenue - stockCost));
     }
 }

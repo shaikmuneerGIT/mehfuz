@@ -13,12 +13,16 @@ npm install
 npm run build
 Pop-Location
 
-Write-Host "==> Publishing ASP.NET Core API (self-contained, win-x64)" -ForegroundColor Cyan
+Write-Host "==> Publishing ASP.NET Core API (self-contained, win-x86)" -ForegroundColor Cyan
 # Self-contained bundles the .NET runtime itself, so the app runs even if
 # the ASP.NET Core Hosting Bundle isn't installed on the server — the
 # safer default for shared/Plesk hosting where you don't control that.
+# win-x86, not win-x64: HostingRaja's IIS app pool runs 32-bit (confirmed
+# via the "HTTP Error 500.32 — different bitness" error from a win-x64
+# build) — match the actual server rather than depend on someone changing
+# the app pool's "Enable 32-Bit Applications" setting in Plesk.
 Push-Location "$root\api"
-dotnet publish -c Release -r win-x64 --self-contained true -o "$root\publish"
+dotnet publish -c Release -r win-x86 --self-contained true -o "$root\publish"
 Pop-Location
 
 Write-Host "==> Copying client build into publish\client-dist" -ForegroundColor Cyan

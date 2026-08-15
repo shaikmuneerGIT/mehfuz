@@ -28,3 +28,5 @@ Thumbs.db
 # Local scratch space for throwaway scripts
 .scratch*/
 .e2e/
+.localcheck/
+.ftpcleanup/

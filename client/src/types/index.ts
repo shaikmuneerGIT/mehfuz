@@ -61,6 +61,24 @@ export interface Order {
   createdAt: string;
 }
 
+export interface StockReceiptItem {
+  id: string;
+  variantId: string;
+  labelSnapshot: string;
+  quantity: number;
+}
+
+export interface StockReceipt {
+  id: string;
+  productId: string;
+  productName: string;
+  supplierName?: string | null;
+  notes?: string | null;
+  totalCostInr: number;
+  receivedAt: string;
+  items: StockReceiptItem[];
+}
+
 export interface CartLine {
   productId: string;
   productName: string;

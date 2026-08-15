@@ -35,4 +35,11 @@ public record UpsertProductRequest(
 
 public record SetVisibilityRequest(bool IsActive);
 
-public record AdminSummaryDto(int ProductCount, int OrderCount, int PendingOrders, int TotalRevenueInr);
+public record AdminSummaryDto(
+    int ProductCount,
+    int OrderCount,
+    int PendingOrders,
+    int TotalRevenueInr,
+    int TotalStockCostInr,
+    int ProfitInr
+);

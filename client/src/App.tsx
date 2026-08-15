@@ -15,6 +15,7 @@ import { AdminDashboard } from "./pages/admin/AdminDashboard";
 import { AdminProducts } from "./pages/admin/AdminProducts";
 import { AdminProductForm } from "./pages/admin/AdminProductForm";
 import { AdminOrders } from "./pages/admin/AdminOrders";
+import { AdminStock } from "./pages/admin/AdminStock";
 
 function StorefrontLayout({ children }: { children: ReactNode }) {
   return (
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="products" element={<AdminProducts />} />
         <Route path="products/:id" element={<AdminProductForm />} />
         <Route path="orders" element={<AdminOrders />} />
+        <Route path="stock" element={<AdminStock />} />
       </Route>
     </Routes>
   );
