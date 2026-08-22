@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import type { Category, Product } from "../types";
 import { ProductCard } from "../components/ProductCard";
-import { Divider } from "../components/art/Ornaments";
+import { PageBanner } from "../components/PageBanner";
+import { FiSearch } from "react-icons/fi";
 
 export function Shop() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -45,78 +46,103 @@ export function Shop() {
     setSearchParams(next);
   }
 
-  return (
-    <div className="parchment min-h-screen">
-    <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold-700">Catalog</p>
-          <h1 className="font-display mt-1 text-3xl font-bold text-brown-950">
-            {activeCategory
-              ? (categories.find((c) => c.slug === activeCategory)?.name ?? "Shop")
-              : "Shop All Products"}
-          </h1>
-          <Divider className="mt-3 max-w-[200px]" />
-        </div>
-        <form onSubmit={submitSearch} className="flex gap-2">
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search products..."
-            className="w-full min-w-[200px] rounded-full border border-gold-500/50 bg-white px-4 py-2 text-sm focus:border-gold-600 focus:outline-none"
-          />
-          <button
-            type="submit"
-            className="rounded-full bg-brown-950 px-4 py-2 text-sm font-semibold text-gold-300 hover:bg-brown-900"
-          >
-            Search
-          </button>
-        </form>
-      </div>
+  const currentCategoryName = activeCategory
+    ? categories.find((c) => c.slug === activeCategory)?.name ?? "Shop Catalog"
+    : "Shop All Products";
 
-      <div className="mb-8 flex flex-wrap gap-2">
-        <button
-          onClick={() => selectCategory("")}
-          className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-            !activeCategory
-              ? "border-brown-950 bg-brown-950 text-gold-300"
-              : "border-gold-500/50 text-brown-700 hover:bg-cream-100"
-          }`}
-        >
-          All
-        </button>
-        {categories.map((c) => (
+  return (
+    <div className="parchment min-h-screen font-roboto">
+      {/* 200px Height Full-Width Header Banner */}
+      <PageBanner
+        title={currentCategoryName}
+        subtitle="Handpicked premium dry fruits, Afghan anjeer, Kashmiri saffron, nuts & spices sourced directly at origin."
+        breadcrumbs={[
+          { label: "Shop", href: "/shop" },
+          ...(activeCategory ? [{ label: currentCategoryName }] : []),
+        ]}
+      />
+
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 font-roboto">
+        {/* Search & Category Filter Header Bar */}
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between font-roboto">
+          <form onSubmit={submitSearch} className="flex gap-2 w-full md:max-w-md font-roboto">
+            <div className="relative w-full font-roboto">
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search anjeer, saffron, almonds, coffee..."
+                className="w-full rounded-full border border-gold-500/40 bg-white/90 pl-10 pr-4 py-2.5 text-sm text-brown-900 focus:border-gold-600 focus:outline-none font-roboto shadow-sm"
+              />
+              <FiSearch className="absolute left-3.5 top-3.5 h-4 w-4 text-brown-400" />
+            </div>
+            <button
+              type="submit"
+              className="rounded-full bg-forest-950 px-6 py-2.5 text-sm font-semibold text-gold-300 transition hover:bg-forest-900 font-roboto shrink-0 shadow-sm"
+            >
+              Search
+            </button>
+          </form>
+
+          <p className="text-xs text-brown-600 font-roboto">
+            Showing <strong className="text-brown-950 font-roboto">{products.length}</strong> products
+          </p>
+        </div>
+
+        {/* Category Pill Filters */}
+        <div className="mb-8 flex flex-wrap gap-2 font-roboto">
           <button
-            key={c.id}
-            onClick={() => selectCategory(c.slug)}
-            className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
-              activeCategory === c.slug
-                ? "border-brown-950 bg-brown-950 text-gold-300"
-                : "border-gold-500/50 text-brown-700 hover:bg-cream-100"
+            onClick={() => selectCategory("")}
+            className={`rounded-full border px-4 py-2 text-xs sm:text-sm font-medium transition font-roboto cursor-pointer ${
+              !activeCategory
+                ? "border-forest-950 bg-forest-950 text-gold-300 shadow-sm"
+                : "border-gold-500/40 bg-cream-50/90 text-brown-800 hover:bg-cream-100 hover:text-forest-800"
             }`}
           >
-            {c.name}
+            All Products
           </button>
-        ))}
-      </div>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => selectCategory(c.slug)}
+              className={`rounded-full border px-4 py-2 text-xs sm:text-sm font-medium transition font-roboto cursor-pointer ${
+                activeCategory === c.slug
+                  ? "border-forest-950 bg-forest-950 text-gold-300 shadow-sm"
+                  : "border-gold-500/40 bg-cream-50/90 text-brown-800 hover:bg-cream-100 hover:text-forest-800"
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
 
-      {loading ? (
-        <p className="text-brown-500">Loading products...</p>
-      ) : products.length === 0 ? (
-        <p className="text-brown-500">No products found.</p>
-      ) : (
-        <>
-          <p className="mb-4 text-xs text-brown-500">
-            {products.length} product{products.length === 1 ? "" : "s"}
-          </p>
-          <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4">
+        {/* Products Grid */}
+        {loading ? (
+          <div className="py-20 text-center font-roboto">
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-gold-600 border-t-transparent mb-3" />
+            <p className="font-roboto text-brown-700 text-sm">Loading catalogue...</p>
+          </div>
+        ) : products.length === 0 ? (
+          <div className="py-20 text-center font-roboto bg-cream-50/70 rounded-2xl border border-gold-500/20 p-8">
+            <p className="font-roboto text-brown-800 font-semibold text-lg">No matching products found</p>
+            <p className="font-roboto text-brown-600 text-xs mt-1">Try resetting your search filter or selecting another category.</p>
+            <button
+              onClick={() => {
+                setQuery("");
+                selectCategory("");
+              }}
+              className="mt-4 rounded-full bg-brown-950 px-5 py-2 text-xs font-bold text-gold-300 font-roboto"
+            >
+              View All Products
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 font-roboto">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} />
             ))}
           </div>
-        </>
-      )}
-    </div>
+        )}
+      </div>
     </div>
   );
 }

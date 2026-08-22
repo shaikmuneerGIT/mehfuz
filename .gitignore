@@ -30,3 +30,17 @@ Thumbs.db
 .e2e/
 .localcheck/
 .ftpcleanup/
+
+# Node backend (restored) — local db, env, build output
+server/.env
+server/prisma/*.db
+server/prisma/*.db-journal
+server/dist/
+server/node_modules/
+
+# Deploy staging/packaging artifacts
+deploy-staging/
+deploy-delta/
+*.tar.gz
+*.zip
+publish-smoketest*.log

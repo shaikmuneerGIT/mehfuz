@@ -1,33 +1,34 @@
 import { Link } from "react-router-dom";
 import { CornerFlourish, Divider } from "./art/Ornaments";
+import { Logo } from "./Logo";
+import { FiPhoneCall } from "react-icons/fi";
+import { FaInstagram, FaFacebookF, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 export function SiteFooter() {
   return (
-    <footer className="relative border-t border-gold-500/40 bg-brown-950 text-cream-100">
-      {/* filigree along the top edge, echoing the poster's border */}
-      <CornerFlourish className="pointer-events-none absolute left-2 top-2 h-10 w-10 text-gold-500/40" />
-      <CornerFlourish className="pointer-events-none absolute right-2 top-2 h-10 w-10 -scale-x-100 text-gold-500/40" />
+    <footer className="relative border-t border-gold-500/40 bg-gradient-to-b from-black via-brown-950 to-brown-900 text-cream-100 font-roboto">
+      {/* Filigree along top edge */}
+      <CornerFlourish className="pointer-events-none absolute left-2 top-2 h-10 w-10 text-gold-400/40" />
+      <CornerFlourish className="pointer-events-none absolute right-2 top-2 h-10 w-10 -scale-x-100 text-gold-400/40" />
 
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
         <div>
-          <div className="font-display gold-gradient-text text-2xl font-bold tracking-[0.12em]">
-            MEHFUZ
-          </div>
-          <div className="mt-1 font-display text-[9px] uppercase tracking-[0.2em] text-gold-400/80">
-            Premium Dry Fruits &amp; Commodities
-          </div>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-cream-100/70">
+          <Link to="/" className="inline-block">
+            <Logo variant="footer" />
+          </Link>
+          <p className="mt-4 max-w-xs text-sm leading-relaxed text-cream-100/70 font-roboto">
             Handpicked and sourced directly from the finest growing regions —
             Afghanistan, Kashmir, Coorg, Chikmagalur and Guntur.
           </p>
         </div>
 
         <div>
-          <h3 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
+          <h3 className="font-serif text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
             Shop
           </h3>
-          <ul className="mt-4 space-y-2 text-sm text-cream-100/80">
+          <ul className="mt-4 space-y-2 text-sm text-cream-100/80 font-roboto">
             <li><Link to="/shop" className="transition hover:text-gold-300">All products</Link></li>
+            <li><Link to="/blog" className="transition hover:text-gold-300">Harvest Blog</Link></li>
             <li><Link to="/shop?category=figs-anjeer" className="transition hover:text-gold-300">Anjeer</Link></li>
             <li><Link to="/shop?category=dates" className="transition hover:text-gold-300">Dates</Link></li>
             <li><Link to="/shop?category=nuts" className="transition hover:text-gold-300">Nuts</Link></li>
@@ -36,27 +37,63 @@ export function SiteFooter() {
         </div>
 
         <div>
-          <h3 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
+          <h3 className="font-serif text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
             For Orders &amp; Enquiries
           </h3>
-          <ul className="mt-4 space-y-2 text-sm text-cream-100/80">
+          <ul className="mt-4 space-y-2 text-sm text-cream-100/80 font-roboto">
             <li>
-              <a href="tel:+919848918992" className="transition hover:text-gold-300">
-                +91 98489 18992
+              <a href="tel:+919848918992" className="inline-flex items-center gap-2 transition hover:text-gold-300 font-roboto">
+                <FiPhoneCall className="h-3.5 w-3.5 text-gold-400" />
+                <span>+91 98489 18992</span>
               </a>
             </li>
             <li>
-              <a href="tel:+917013355940" className="transition hover:text-gold-300">
-                +91 70133 55940
+              <a href="tel:+919880833944" className="inline-flex items-center gap-2 transition hover:text-gold-300 font-roboto">
+                <FiPhoneCall className="h-3.5 w-3.5 text-gold-400" />
+                <span>+91 98808 33944</span>
               </a>
             </li>
           </ul>
-          <Link
-            to="/admin/login"
-            className="mt-6 inline-block text-xs text-cream-100/35 transition hover:text-gold-400"
-          >
-            Store admin
-          </Link>
+
+          {/* Social Media Icons with 2026 AI Animations */}
+          <div className="mt-6 flex items-center gap-3.5">
+            <a
+              href="https://instagram.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="ai-social-btn"
+            >
+              <FaInstagram className="h-4 w-4" />
+            </a>
+            <a
+              href="https://facebook.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              className="ai-social-btn"
+            >
+              <FaFacebookF className="h-4 w-4" />
+            </a>
+            <a
+              href="https://wa.me/919848918992"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="WhatsApp"
+              className="ai-social-btn"
+            >
+              <FaWhatsapp className="h-4 w-4" />
+            </a>
+            <a
+              href="https://youtube.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="YouTube"
+              className="ai-social-btn"
+            >
+              <FaYoutube className="h-4 w-4" />
+            </a>
+          </div>
         </div>
       </div>
 

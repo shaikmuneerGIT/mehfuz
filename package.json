@@ -1,0 +1,24 @@
+{
+  "name": "mehfuz",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Mehfuz Premium Dry Fruits & Commodities — storefront and admin",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "//": "--include=dev is explicit because the build needs tsc, vite and ts-node, which hosts with NODE_ENV=production may otherwise skip.",
+    "install:all": "npm --prefix server install --include=dev && npm --prefix client install --include=dev",
+    "build:client": "npm --prefix client run build",
+    "build:server": "npm --prefix server run build",
+    "build": "npm run build:client && npm run build:server",
+    "migrate": "npm --prefix server run migrate:deploy",
+    "seed": "npm --prefix server run prisma:seed",
+    "render-build": "npm run install:all && npm run build",
+    "//2": "migrate/seed run here, not in render-build, because Render's persistent disk is only mounted on the running instance — it does not exist yet during the build step.",
+    "render-start": "npm run migrate && npm run seed && npm start",
+    "start": "node server/dist/index.js",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
+  }
+}

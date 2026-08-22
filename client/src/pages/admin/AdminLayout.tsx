@@ -1,11 +1,13 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
+import { Logo } from "../../components/Logo";
 
 const LINKS = [
   { to: "/admin", label: "Dashboard", end: true },
   { to: "/admin/products", label: "Products" },
   { to: "/admin/orders", label: "Orders" },
   { to: "/admin/stock", label: "Stock" },
+  { to: "/admin/expenses", label: "Expenses" },
 ];
 
 export function AdminLayout() {
@@ -15,10 +17,10 @@ export function AdminLayout() {
     <div className="mx-auto flex min-h-[70vh] max-w-7xl gap-6 px-4 py-8 sm:px-6">
       <aside className="w-48 flex-shrink-0">
         <div className="mb-6">
-          <Link to="/" className="font-display gold-gradient-text text-xl font-bold">
-            MEHFUZ
+          <Link to="/" className="inline-block">
+            <Logo variant="admin" />
           </Link>
-          <p className="text-xs text-brown-500">Admin Panel</p>
+          <p className="mt-1 text-xs text-brown-500 font-medium">Admin Panel</p>
         </div>
         <nav className="flex flex-col gap-1">
           {LINKS.map((link) => (

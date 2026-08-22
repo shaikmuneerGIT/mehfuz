@@ -8,6 +8,7 @@ interface Summary {
   pendingOrders: number;
   totalRevenueInr: number;
   totalStockCostInr: number;
+  totalExpensesInr: number;
   profitInr: number;
 }
 
@@ -29,6 +30,10 @@ export function AdminDashboard() {
     {
       label: "Stock Cost (Paid to Suppliers)",
       value: summary ? formatInr(summary.totalStockCostInr) : "—",
+    },
+    {
+      label: "Business Expenses",
+      value: summary ? formatInr(summary.totalExpensesInr) : "—",
     },
     {
       label: "Profit",
@@ -57,8 +62,8 @@ export function AdminDashboard() {
         ))}
       </div>
       <p className="mt-4 text-xs text-brown-500">
-        Profit = total order revenue − total stock cost recorded on the Stock page. Add supplier
-        deliveries there to keep this accurate.
+        Profit = total order revenue − stock cost (Stock page) − business expenses (Expenses
+        page). Keep both updated to see real profit.
       </p>
     </div>
   );

@@ -5,6 +5,9 @@ import { SiteFooter } from "./components/SiteFooter";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { Home } from "./pages/Home";
 import { Shop } from "./pages/Shop";
+import { About } from "./pages/About";
+import { Contact } from "./pages/Contact";
+import { Blog } from "./pages/Blog";
 import { ProductDetail } from "./pages/ProductDetail";
 import { Cart } from "./pages/Cart";
 import { Checkout } from "./pages/Checkout";
@@ -16,6 +19,7 @@ import { AdminProducts } from "./pages/admin/AdminProducts";
 import { AdminProductForm } from "./pages/admin/AdminProductForm";
 import { AdminOrders } from "./pages/admin/AdminOrders";
 import { AdminStock } from "./pages/admin/AdminStock";
+import { AdminExpenses } from "./pages/admin/AdminExpenses";
 
 function StorefrontLayout({ children }: { children: ReactNode }) {
   return (
@@ -32,6 +36,9 @@ export default function App() {
     <Routes>
       <Route path="/" element={<StorefrontLayout><Home /></StorefrontLayout>} />
       <Route path="/shop" element={<StorefrontLayout><Shop /></StorefrontLayout>} />
+      <Route path="/about" element={<StorefrontLayout><About /></StorefrontLayout>} />
+      <Route path="/blog" element={<StorefrontLayout><Blog /></StorefrontLayout>} />
+      <Route path="/contact" element={<StorefrontLayout><Contact /></StorefrontLayout>} />
       <Route path="/product/:slug" element={<StorefrontLayout><ProductDetail /></StorefrontLayout>} />
       <Route path="/cart" element={<StorefrontLayout><Cart /></StorefrontLayout>} />
       <Route path="/checkout" element={<StorefrontLayout><Checkout /></StorefrontLayout>} />
@@ -54,6 +61,7 @@ export default function App() {
         <Route path="products/:id" element={<AdminProductForm />} />
         <Route path="orders" element={<AdminOrders />} />
         <Route path="stock" element={<AdminStock />} />
+        <Route path="expenses" element={<AdminExpenses />} />
       </Route>
     </Routes>
   );

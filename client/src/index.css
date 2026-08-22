@@ -2,20 +2,42 @@
 
 @theme {
   --font-serif: "Playfair Display", Georgia, serif;
-  --font-sans: "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-sans: "Roboto", system-ui, "Segoe UI", sans-serif;
+  --font-roboto: "Roboto", system-ui, "Segoe UI", sans-serif;
 
-  --color-cream-50: #fffaf0;
-  --color-cream-100: #fdf3e0;
-  --color-cream-200: #f8e8c9;
-  --color-brown-950: #2b1808;
-  --color-brown-900: #3a2211;
+  /* Background: Light cream / light gold */
+  --color-cream-50: #faf6ee;
+  --color-cream-100: #f5ebd9;
+  --color-cream-200: #ebdcbf;
+  --color-cream-300: #decbaa;
+
+  /* Primary: Metallic Gold */
+  --color-gold-100: #fcf9e2;
+  --color-gold-200: #f5e49b;
+  --color-gold-300: #e5c453;
+  --color-gold-400: #d4af37;
+  --color-gold-500: #c59b27;
+  --color-gold-600: #b38728;
+  --color-gold-700: #8c6512;
+  --color-gold-800: #694a0b;
+
+  /* Secondary 1: Dark Brown */
+  --color-brown-950: #231508;
+  --color-brown-900: #331f10;
+  --color-brown-800: #462b17;
   --color-brown-700: #5c3a1e;
-  --color-brown-500: #8a5a2c;
-  --color-gold-300: #f3d78b;
-  --color-gold-400: #e8bd5e;
-  --color-gold-500: #cf9a3c;
-  --color-gold-600: #a9782a;
-  --color-gold-700: #8a5e1f;
+  --color-brown-500: #855b33;
+
+  /* Secondary 2: Dark Green (Natural Luxury) */
+  --color-forest-950: #0c2417;
+  --color-forest-900: #133824;
+  --color-forest-800: #1c4e33;
+  --color-forest-700: #276945;
+  --color-forest-600: #358759;
+  --color-forest-500: #46a372;
+  --color-forest-100: #e8f5ed;
+
+  /* Accent status */
   --color-maroon-700: #7a2418;
   --color-maroon-600: #93301f;
 }
@@ -31,30 +53,65 @@ body {
   font-family: var(--font-sans);
 }
 
-/* Aged-parchment ground: warm corner washes plus a fine grain, echoing the
-   printed poster rather than a flat web background. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-sans);
+}
+
+p,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-sans);
+}
+
+/* Aged-parchment ground: warm light cream/light gold with fine grain */
 .parchment {
   background-color: var(--color-cream-50);
   background-image:
-    radial-gradient(ellipse at 12% 0%, rgba(207, 154, 60, 0.16), transparent 55%),
-    radial-gradient(ellipse at 88% 6%, rgba(207, 154, 60, 0.13), transparent 55%),
-    radial-gradient(ellipse at 50% 100%, rgba(138, 94, 31, 0.12), transparent 60%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+    radial-gradient(ellipse at 12% 0%, rgba(212, 175, 55, 0.18), transparent 55%),
+    radial-gradient(ellipse at 88% 6%, rgba(245, 228, 155, 0.20), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(19, 56, 36, 0.08), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
 }
 
-.font-display {
+.font-display,
+.font-serif {
   font-family: var(--font-serif);
 }
 
+/* Metallic gold text & backgrounds */
 .gold-gradient-text {
-  background: linear-gradient(135deg, #a9782a 0%, #e8bd5e 45%, #cf9a3c 100%);
+  background: linear-gradient(135deg, #bf953f 0%, #fcf6ba 25%, #b38728 50%, #fbf5b7 75%, #aa771c 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
+.metallic-gold-bg {
+  background: linear-gradient(135deg, #d4af37 0%, #fef4a9 30%, #c59b27 70%, #9a6f15 100%);
+}
+
+.metallic-gold-btn {
+  background: linear-gradient(135deg, #d4af37 0%, #fef4a9 30%, #c59b27 70%, #aa771c 100%);
+  color: #231508;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(179, 135, 40, 0.35);
+  transition: all 0.3s ease;
+}
+
+.metallic-gold-btn:hover {
+  background: linear-gradient(135deg, #fef4a9 0%, #d4af37 40%, #aa771c 100%);
+  box-shadow: 0 6px 20px rgba(179, 135, 40, 0.45);
+}
+
 .gold-border {
-  border-image: linear-gradient(135deg, #a9782a, #e8bd5e, #a9782a) 1;
+  border-image: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #aa771c) 1;
 }
 
 ::selection {
@@ -66,6 +123,7 @@ body {
   height: 6px;
   width: 6px;
 }
+
 .scrollbar-thin::-webkit-scrollbar-thumb {
   background: var(--color-gold-500);
   border-radius: 999px;
@@ -79,8 +137,151 @@ body {
   padding: 0.5rem 0.75rem;
   color: var(--color-brown-900);
 }
+
 .input:focus {
   outline: none;
   border-color: var(--color-gold-600);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-gold-400) 30%, transparent);
+}
+
+@keyframes progress {
+  0% {
+    width: 0%;
+  }
+
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes zoomInKenBurns {
+  0% {
+    transform: scale(1);
+  }
+
+  100% {
+    transform: scale(1.22);
+  }
+}
+
+@keyframes zoomOutKenBurns {
+  0% {
+    transform: scale(1.22);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-zoom-in {
+  animation: zoomInKenBurns 6.5s ease-out infinite alternate;
+}
+
+.animate-zoom-out {
+  animation: zoomOutKenBurns 6.5s ease-out infinite alternate;
+}
+
+/* ----------------- 2026 AI Trendy Social Media Icon Animation ----------------- */
+@keyframes conicRotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.ai-social-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  background: rgba(35, 21, 8, 0.85);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  color: #e5c453;
+  backdrop-filter: blur(12px);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  overflow: hidden;
+}
+
+.ai-social-btn::before {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 9999px;
+  background: conic-gradient(from 0deg, transparent 0%, #d4af37 35%, #fef4a9 50%, #d4af37 65%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  animation: conicRotate 3.5s linear infinite;
+  z-index: 0;
+}
+
+.ai-social-btn::after {
+  content: "";
+  position: absolute;
+  inset: 1.5px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 50% 50%, #2b1808 0%, #150b04 100%);
+  z-index: 1;
+  transition: background 0.4s ease;
+}
+
+.ai-social-btn svg {
+  position: relative;
+  z-index: 2;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s ease;
+}
+
+.ai-social-btn:hover {
+  transform: translateY(-6px) scale(1.14);
+  border-color: rgba(254, 244, 169, 0.95);
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.65), 0 0 50px rgba(179, 135, 40, 0.35);
+}
+
+.ai-social-btn:hover::before {
+  opacity: 1;
+}
+
+.ai-social-btn:hover::after {
+  background: linear-gradient(135deg, #d4af37 0%, #fef4a9 45%, #b38728 100%);
+}
+
+.ai-social-btn:hover svg {
+  transform: scale(1.22) rotate(6deg);
+  color: #1a0c02;
+}
+
+/* ----------------- 2026 AI Trendy Category Marquee Scroller ----------------- */
+@keyframes marqueeLeft {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.ai-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marqueeLeft 28s linear infinite;
+  will-change: transform;
+}
+
+.ai-marquee-track:hover {
+  animation-play-state: paused !important;
+}
+
+.ai-category-card {
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.ai-category-card:hover {
+  transform: translateY(-8px) scale(1.06);
+  box-shadow: 0 12px 30px rgba(212, 175, 55, 0.35), 0 0 20px rgba(19, 56, 36, 0.15);
+  border-color: rgba(212, 175, 55, 0.95);
 }

@@ -55,7 +55,7 @@ export function ProductImage({
       )}
 
       {badge && (
-        <span className="absolute left-2 top-2 rounded-full border border-gold-300/60 bg-brown-950/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gold-300 shadow-sm">
+        <span className="absolute left-2 top-2 rounded-full border border-gold-400/60 bg-forest-950/95 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-gold-300 shadow-md">
           {badge}
         </span>
       )}

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "../../context/AdminAuthContext";
+import { Logo } from "../../components/Logo";
 
 export function AdminLogin() {
   const { admin, login } = useAdminAuth();
@@ -36,10 +37,11 @@ export function AdminLogin() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-xl border border-gold-500/30 bg-white p-8 shadow-sm"
       >
-        <h1 className="font-display gold-gradient-text text-center text-2xl font-bold">
-          MEHFUZ Admin
-        </h1>
-        <p className="mt-1 text-center text-sm text-brown-500">Sign in to manage your store</p>
+        <div className="flex flex-col items-center">
+          <Logo variant="admin" />
+          <p className="mt-2 text-center text-sm font-semibold text-brown-800">Admin Portal</p>
+        </div>
+        <p className="mt-1 text-center text-xs text-brown-500">Sign in to manage your store</p>
 
         <div className="mt-6 space-y-4">
           <label className="block text-sm">

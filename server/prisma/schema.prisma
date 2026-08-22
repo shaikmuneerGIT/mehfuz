@@ -1,0 +1,128 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-1.1.x", "rhel-openssl-3.0.x", "debian-openssl-1.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  origin      String?
+  products    Product[]
+  createdAt   DateTime  @default(now())
+}
+
+model Product {
+  id            String       @id @default(cuid())
+  name          String
+  slug          String       @unique
+  description   String?
+  origin        String?
+  badge         String?
+  imageUrl      String?
+  isFeatured    Boolean      @default(false)
+  isActive      Boolean      @default(true)
+  categoryId    String
+  category      Category     @relation(fields: [categoryId], references: [id])
+  variants      Variant[]
+  orderItems    OrderItem[]
+  stockReceipts StockReceipt[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Variant {
+  id                String             @id @default(cuid())
+  productId         String
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  label             String
+  priceInr          Int
+  stock             Int                @default(100)
+  isActive          Boolean            @default(true)
+  orderItems        OrderItem[]
+  stockReceiptItems StockReceiptItem[]
+}
+
+model Order {
+  id             String      @id @default(cuid())
+  orderNumber    String      @unique
+  customerName   String
+  phone          String
+  email          String?
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  state          String
+  pincode        String
+  notes          String?
+  status         String      @default("PENDING")
+  paymentMethod  String      @default("COD")
+  paymentStatus  String?
+  paymentRef     String?
+  subtotalInr    Int
+  shippingInr    Int         @default(0)
+  totalInr       Int
+  items          OrderItem[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model OrderItem {
+  id         String  @id @default(cuid())
+  orderId    String
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product @relation(fields: [productId], references: [id])
+  variantId  String
+  variant    Variant @relation(fields: [variantId], references: [id])
+  nameSnapshot   String
+  labelSnapshot  String
+  priceInr       Int
+  quantity       Int
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+}
+
+model StockReceipt {
+  id           String             @id @default(cuid())
+  productId    String
+  product      Product            @relation(fields: [productId], references: [id])
+  supplierName String?
+  notes        String?
+  totalCostInr Int
+  receivedAt   DateTime           @default(now())
+  items        StockReceiptItem[]
+  createdAt    DateTime           @default(now())
+}
+
+model StockReceiptItem {
+  id            String       @id @default(cuid())
+  receiptId     String
+  receipt       StockReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  variantId     String
+  variant       Variant      @relation(fields: [variantId], references: [id])
+  labelSnapshot String
+  quantity      Int
+}
+
+model Expense {
+  id         String   @id @default(cuid())
+  title      String
+  category   String?
+  notes      String?
+  amountInr  Int
+  incurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+}

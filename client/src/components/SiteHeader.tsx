@@ -1,40 +1,21 @@
 import { Link, NavLink } from "react-router-dom";
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { Logo } from "./Logo";
+import { FiShoppingBag, FiMenu, FiX } from "react-icons/fi";
+import { FaInstagram, FaFacebookF, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 const NAV_LINKS = [
-  { to: "/shop", label: "Shop All" },
-  { to: "/shop?category=figs-anjeer", label: "Anjeer" },
-  { to: "/shop?category=dates", label: "Dates" },
-  { to: "/shop?category=nuts", label: "Nuts" },
-  { to: "/shop?category=saffron-kesar", label: "Saffron" },
+  { to: "/", label: "Home", end: true },
+  { to: "/about", label: "About" },
+  { to: "/shop", label: "Shop" },
+  { to: "/blog", label: "Blog" },
+  { to: "/contact", label: "Contact" },
 ];
 
-/** Stacked wordmark + rule + tagline, as the name is set on the poster. */
+/** Stacked logo / wordmark */
 export function Wordmark({ compact = false }: { compact?: boolean }) {
-  return (
-    <span className="flex flex-col items-center leading-none">
-      <span
-        className={`font-display gold-gradient-text font-bold tracking-[0.12em] ${
-          compact ? "text-xl" : "text-2xl sm:text-[28px]"
-        }`}
-      >
-        MEHFUZ
-      </span>
-      <span className="mt-1 flex w-full items-center gap-1.5">
-        <span className="h-px flex-1 bg-gold-500/50" />
-        <span className="h-1 w-1 rotate-45 bg-gold-500/70" />
-        <span className="h-px flex-1 bg-gold-500/50" />
-      </span>
-      <span
-        className={`font-display mt-1 whitespace-nowrap uppercase tracking-[0.18em] text-brown-500 ${
-          compact ? "text-[7px]" : "text-[8px] sm:text-[9px]"
-        }`}
-      >
-        Premium Dry Fruits &amp; Commodities
-      </span>
-    </span>
-  );
+  return <Logo compact={compact} variant="header" />;
 }
 
 export function SiteHeader() {
@@ -42,60 +23,131 @@ export function SiteHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gold-500/40 bg-cream-50/95 shadow-[0_1px_0_rgba(207,154,60,0.25)] backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-50 border-b border-gold-500/40 bg-black shadow-lg backdrop-blur">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
         <Link to="/" aria-label="Mehfuz home" className="shrink-0">
           <Wordmark />
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        {/* Desktop Navigation */}
+        <nav className="hidden items-center gap-5 lg:gap-7 md:flex">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.label}
               to={link.to}
-              className="group relative text-sm font-medium text-brown-700 transition hover:text-gold-700"
+              end={link.end}
+              className={({ isActive }) =>
+                `group relative text-md font-semibold transition-all duration-300 ${
+                  isActive ? "text-gold-300 font-bold" : "text-cream-100/90 hover:text-gold-300"
+                }`
+              }
             >
-              {link.label}
-              <span className="absolute -bottom-1 left-1/2 h-px w-0 -translate-x-1/2 bg-gold-600 transition-all duration-300 group-hover:w-full" />
+              {({ isActive }) => (
+                <>
+                  <span>{link.label}</span>
+                  <span
+                    className={`absolute -bottom-1.5 left-0 h-[2px] rounded-full bg-gold-400 transition-all duration-300 ${
+                      isActive ? "w-full shadow-[0_0_8px_rgba(212,175,55,0.8)]" : "w-0 group-hover:w-full"
+                    }`}
+                  />
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
 
-        <div className="flex items-center gap-3">
+        {/* Action Buttons & Social Icons */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Social Media Icons in Top Header Right Corner */}
+          <div className="hidden sm:flex items-center gap-1.5 border-r border-gold-500/30 pr-3 mr-1 font-roboto">
+            <a
+              href="https://instagram.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Instagram"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 text-gold-300 transition hover:bg-gold-500 hover:text-brown-950 hover:scale-110 shadow-sm"
+            >
+              <FaInstagram className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href="https://facebook.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Facebook"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 text-gold-300 transition hover:bg-gold-500 hover:text-brown-950 hover:scale-110 shadow-sm"
+            >
+              <FaFacebookF className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href="https://wa.me/919848918992"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="WhatsApp"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 text-gold-300 transition hover:bg-gold-500 hover:text-brown-950 hover:scale-110 shadow-sm"
+            >
+              <FaWhatsapp className="h-3.5 w-3.5" />
+            </a>
+            <a
+              href="https://youtube.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="YouTube"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-gold-500/40 bg-gold-500/10 text-gold-300 transition hover:bg-gold-500 hover:text-brown-950 hover:scale-110 shadow-sm"
+            >
+              <FaYoutube className="h-3.5 w-3.5" />
+            </a>
+          </div>
+
           <Link
             to="/cart"
-            className="relative flex items-center gap-2 rounded-full border border-gold-500/70 bg-brown-950 px-4 py-2 text-sm font-semibold text-gold-300 shadow-sm transition hover:bg-brown-900"
+            className="relative flex items-center gap-2 rounded-full border border-gold-500/70 bg-gold-500/10 px-4 py-2 text-sm font-semibold text-gold-300 shadow-sm transition hover:bg-gold-500/20 hover:shadow-md font-roboto"
           >
-            Cart
+            <FiShoppingBag className="h-4 w-4" />
+            <span className="hidden sm:inline">Cart</span>
             {totalItems > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-500 px-1 text-xs font-bold text-brown-950">
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-gold-400 px-1 text-xs font-bold text-brown-950">
                 {totalItems}
               </span>
             )}
           </Link>
           <button
-            className="rounded-md border border-gold-500/50 p-2 text-brown-700 md:hidden"
+            className="rounded-md border border-gold-500/50 p-2 text-gold-300 md:hidden hover:bg-brown-900"
             onClick={() => setMenuOpen((v) => !v)}
             aria-label="Toggle menu"
             aria-expanded={menuOpen}
           >
-            ☰
+            {menuOpen ? <FiX className="h-5 w-5" /> : <FiMenu className="h-5 w-5" />}
           </button>
         </div>
       </div>
 
+      {/* Mobile Drawer Menu */}
       {menuOpen && (
-        <nav className="flex flex-col gap-1 border-t border-gold-500/30 bg-cream-50 px-4 py-3 md:hidden">
+        <nav className="flex flex-col gap-1 border-t border-gold-500/30 bg-brown-950 px-4 py-3 md:hidden font-roboto">
           {NAV_LINKS.map((link) => (
             <NavLink
               key={link.label}
               to={link.to}
+              end={link.end}
               onClick={() => setMenuOpen(false)}
-              className="rounded px-2 py-2 text-sm font-medium text-brown-700 hover:bg-cream-200"
+              className={({ isActive }) =>
+                `rounded px-3 py-2 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-gold-500/20 text-gold-300 font-bold border-l-2 border-gold-400"
+                    : "text-cream-100 hover:bg-brown-900 hover:text-gold-300"
+                }`
+              }
             >
               {link.label}
             </NavLink>
           ))}
+          {/* Mobile Social Links */}
+          <div className="mt-2 flex items-center justify-center gap-4 pt-3 border-t border-gold-500/30">
+            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-gold-300 hover:text-gold-400 p-2"><FaInstagram className="h-4 w-4" /></a>
+            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-gold-300 hover:text-gold-400 p-2"><FaFacebookF className="h-4 w-4" /></a>
+            <a href="https://wa.me/919848918992" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="text-gold-300 hover:text-gold-400 p-2"><FaWhatsapp className="h-4 w-4" /></a>
+            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="text-gold-300 hover:text-gold-400 p-2"><FaYoutube className="h-4 w-4" /></a>
+          </div>
         </nav>
       )}
     </header>

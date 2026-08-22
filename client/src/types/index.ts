@@ -54,6 +54,8 @@ export interface Order {
   notes?: string | null;
   status: string;
   paymentMethod: string;
+  paymentStatus?: string | null;
+  paymentRef?: string | null;
   subtotalInr: number;
   shippingInr: number;
   totalInr: number;
@@ -77,6 +79,15 @@ export interface StockReceipt {
   totalCostInr: number;
   receivedAt: string;
   items: StockReceiptItem[];
+}
+
+export interface Expense {
+  id: string;
+  title: string;
+  category?: string | null;
+  notes?: string | null;
+  amountInr: number;
+  incurredAt: string;
 }
 
 export interface CartLine {

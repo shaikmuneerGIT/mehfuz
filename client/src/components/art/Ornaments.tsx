@@ -70,8 +70,8 @@ export function OrnateFrame({
   corners?: boolean;
 }) {
   return (
-    <div className={`relative rounded-lg border border-gold-500/70 p-px ${className}`}>
-      <div className="relative rounded-[7px] border border-gold-500/35">
+    <div className={`relative rounded-lg border border-gold-500/70 ${className}`}>
+      <div className="relative rounded-[7px]">
         {corners && (
           <>
             <CornerFlourish className="pointer-events-none absolute -left-px -top-px h-8 w-8 text-gold-600/70" />

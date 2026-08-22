@@ -1,0 +1,181 @@
+import { config } from "dotenv";
+config({ quiet: true });
+import path from "node:path";
+import fs from "node:fs";
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import { catalogRouter } from "./routes/catalog";
+import { authRouter } from "./routes/auth";
+import { ordersRouter } from "./routes/orders";
+import { adminRouter } from "./routes/admin";
+import { uploadsRouter, UPLOAD_DIR } from "./routes/uploads";
+import { errorHandler } from "./middleware/errors";
+
+if (!process.env.JWT_SECRET) {
+  console.error(
+    "FATAL: JWT_SECRET is not set. Copy server/.env.example to server/.env and set a strong secret."
+  );
+  process.exit(1);
+}
+
+const app = express();
+const PORT = process.env.PORT ? Number(process.env.PORT) : 4000;
+
+// Behind a reverse proxy (nginx, Render, Railway…) the client IP arrives in
+// X-Forwarded-For; without this the rate limiter sees every request as one IP.
+if (process.env.TRUST_PROXY === "true") {
+  app.set("trust proxy", 1);
+}
+
+app.use(helmet());
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN?.split(",") ?? "*",
+  })
+);
+app.use(express.json());
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many login attempts. Please try again later." },
+});
+
+app.get("/api/health", (_req, res) => res.json({ ok: true, service: "mehfuz-api" }));
+
+// Direct-UPI payment settings. When UPI_ID is unset the checkout shows COD
+// only, so deploying without configuring UPI changes nothing for customers.
+app.get("/api/config/upi", (_req, res) =>
+  res.json({
+    enabled: Boolean(process.env.UPI_ID),
+    upiId: process.env.UPI_ID ?? null,
+    payeeName: process.env.UPI_PAYEE_NAME ?? "Mehfuz Dry Fruits",
+  })
+);
+
+// Uploaded product photos. crossOriginResourcePolicy is relaxed so the
+// storefront can render them when it runs on a different origin.
+app.use(
+  "/uploads",
+  express.static(UPLOAD_DIR, {
+    maxAge: "7d",
+    setHeaders: (res) => res.setHeader("Cross-Origin-Resource-Policy", "cross-origin"),
+  })
+);
+
+app.use("/api/catalog", catalogRouter);
+app.use("/api/auth", authLimiter, authRouter);
+app.use("/api/orders", ordersRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/uploads", uploadsRouter);
+
+// Unmatched API routes are a 404 regardless of the storefront below.
+app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));
+
+// In production this process also serves the built React app, so the whole
+// shop runs on a single origin with no CORS and no separate deployment.
+const CLIENT_DIST =
+  process.env.CLIENT_DIST ?? path.resolve(__dirname, "../../client/dist");
+
+if (fs.existsSync(path.join(CLIENT_DIST, "index.html"))) {
+  // Hashed asset filenames are safe to cache hard; index.html must not be,
+  // or browsers keep loading the previous release after a deploy.
+  app.use(
+    express.static(CLIENT_DIST, {
+      maxAge: "1y",
+      index: false,
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html")) res.setHeader("Cache-Control", "no-cache");
+      },
+    })
+  );
+
+  // Client-side routes (/shop, /admin/…) must return index.html so a direct
+  // visit or refresh doesn't 404.
+  app.use((req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") return next();
+    res.sendFile(path.join(CLIENT_DIST, "index.html"));
+  });
+  console.log(`Serving storefront from ${CLIENT_DIST}`);
+} else {
+  console.log("No client build found — running API only (use the Vite dev server).");
+}
+
+app.use((_req, res) => res.status(404).json({ error: "Not found" }));
+
+app.use(errorHandler);
+
+// The production host can't run `prisma migrate deploy` (no shell access),
+// so tables added after the initial deploy are created here at boot. Each
+// statement is IF NOT EXISTS, matching the SQL in prisma/migrations, so
+// this is a no-op on databases that are already up to date.
+async function ensureNewTables() {
+  const { prisma } = await import("./lib/prisma");
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS "StockReceipt" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "productId" TEXT NOT NULL,
+      "supplierName" TEXT,
+      "notes" TEXT,
+      "totalCostInr" INTEGER NOT NULL,
+      "receivedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT "StockReceipt_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "StockReceiptItem" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "receiptId" TEXT NOT NULL,
+      "variantId" TEXT NOT NULL,
+      "labelSnapshot" TEXT NOT NULL,
+      "quantity" INTEGER NOT NULL,
+      CONSTRAINT "StockReceiptItem_receiptId_fkey" FOREIGN KEY ("receiptId") REFERENCES "StockReceipt" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+      CONSTRAINT "StockReceiptItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "Variant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "Expense" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "title" TEXT NOT NULL,
+      "category" TEXT,
+      "notes" TEXT,
+      "amountInr" INTEGER NOT NULL,
+      "incurredAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`,
+  ];
+  for (const sql of statements) {
+    await prisma.$executeRawUnsafe(sql);
+  }
+
+  // SQLite has no ADD COLUMN IF NOT EXISTS — a failure here just means the
+  // column already exists, so each one is attempted independently.
+  const columnAdds = [
+    `ALTER TABLE "Order" ADD COLUMN "paymentStatus" TEXT`,
+    `ALTER TABLE "Order" ADD COLUMN "paymentRef" TEXT`,
+  ];
+  for (const sql of columnAdds) {
+    try {
+      await prisma.$executeRawUnsafe(sql);
+    } catch {
+      /* column already exists */
+    }
+  }
+
+  // One-shot rename of the admin login to the site's real domain. The guard
+  // makes it a no-op once renamed (or if the new email already exists).
+  await prisma.$executeRawUnsafe(
+    `UPDATE "AdminUser" SET email = 'admin@mehfuzdryfruits.in'
+     WHERE email = 'admin@mehfuzdryfruits.com'
+       AND NOT EXISTS (SELECT 1 FROM "AdminUser" WHERE email = 'admin@mehfuzdryfruits.in')`
+  );
+}
+
+ensureNewTables()
+  .catch((err) => console.error("Table ensure failed:", err))
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`Mehfuz API listening on http://localhost:${PORT}`);
+    });
+  });
