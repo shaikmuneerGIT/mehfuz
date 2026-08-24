@@ -4,6 +4,7 @@ import { useCart } from "../context/CartContext";
 import { formatInr } from "../lib/format";
 import { api } from "../api/client";
 import { PageBanner } from "../components/PageBanner";
+import { CartThumb, cartLineImage } from "../components/CartThumb";
 
 const SHIPPING_THRESHOLD = 999;
 const SHIPPING_FEE = 79;
@@ -220,13 +221,22 @@ export function Checkout() {
 
           <div className="h-fit space-y-4 rounded-xl border border-gold-500/40 bg-cream-100/80 p-6 shadow-md">
             <h2 className="font-serif text-lg font-bold text-brown-950">Order Summary</h2>
-            <div className="space-y-2 text-sm">
+            <div className="space-y-3 text-sm">
               {lines.map((l) => (
-                <div key={l.variantId} className="flex justify-between text-brown-700">
-                  <span>
-                    {l.productName} ({l.variantLabel}) × {l.quantity}
+                <div
+                  key={l.variantId}
+                  className="flex items-center gap-3 rounded-lg border border-gold-500/25 bg-white p-2"
+                >
+                  <CartThumb src={cartLineImage(l)} alt={l.productName} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold text-brown-950">{l.productName}</div>
+                    <div className="text-xs text-brown-500">
+                      {l.variantLabel} × {l.quantity}
+                    </div>
+                  </div>
+                  <span className="font-serif font-bold text-brown-950">
+                    {formatInr(l.priceInr * l.quantity)}
                   </span>
-                  <span className="font-medium text-brown-900">{formatInr(l.priceInr * l.quantity)}</span>
                 </div>
               ))}
             </div>

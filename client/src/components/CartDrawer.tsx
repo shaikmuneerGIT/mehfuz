@@ -3,35 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { formatInr } from "../lib/format";
 import { api } from "../api/client";
-import type { CartLine, Product } from "../types";
+import type { Product } from "../types";
 import { resolveProductImagePath } from "./ProductImage";
+import { CartThumb, cartLineImage } from "./CartThumb";
 import { FiX, FiTrash2, FiShoppingBag, FiMinus, FiPlus, FiArrowRight } from "react-icons/fi";
 
 const SHIPPING_THRESHOLD = 999;
 const SHIPPING_FEE = 79;
-
-function lineImage(l: CartLine): string | null {
-  return l.imageUrl || resolveProductImagePath(l.productName);
-}
-
-function Thumb({ src, alt }: { src: string | null; alt: string }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-gold-500/30 bg-cream-50">
-      {src && !failed ? (
-        <img
-          src={src}
-          alt={alt}
-          loading="lazy"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-contain p-1"
-        />
-      ) : (
-        <FiShoppingBag className="h-6 w-6 text-gold-500/60" />
-      )}
-    </div>
-  );
-}
 
 /** Catalog tiles shown inside the drawer so shoppers can add more without leaving. */
 function AddMoreSection({ products }: { products: Product[] }) {
@@ -200,7 +178,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                   key={l.variantId}
                   className="flex gap-3 rounded-xl border border-gold-500/30 bg-white p-3 shadow-sm"
                 >
-                  <Thumb src={lineImage(l)} alt={l.productName} />
+                  <CartThumb src={cartLineImage(l)} alt={l.productName} />
                   <div className="flex min-w-0 flex-1 flex-col">
                     <Link
                       to={`/product/${l.productSlug}`}
