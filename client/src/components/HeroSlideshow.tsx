@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
+import { api } from "../api/client";
 import { FiChevronLeft, FiChevronRight, FiArrowRight, FiGrid, FiStar } from "react-icons/fi";
 
 export interface SlideItem {
@@ -13,7 +14,7 @@ export interface SlideItem {
   badge: string;
 }
 
-const SLIDES: SlideItem[] = [
+export const DEFAULT_SLIDES: SlideItem[] = [
   {
     id: "anjeer",
     image: "/images/hero_banner_1.webp",
@@ -63,18 +64,33 @@ const SLIDES: SlideItem[] = [
 const AUTOPLAY_INTERVAL = 6000; // 6 seconds per slide
 
 export function HeroSlideshow() {
+  // Admin-managed slides from the server; the built-ins are the fallback.
+  const [slides, setSlides] = useState<SlideItem[]>(DEFAULT_SLIDES);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const SLIDES = slides;
+
+  useEffect(() => {
+    api
+      .get<{ slides: Omit<SlideItem, "id">[] | null }>("/config/hero-slides")
+      .then((res) => {
+        if (res.data.slides && res.data.slides.length > 0) {
+          setSlides(res.data.slides.map((s, i) => ({ ...s, id: `slide-${i}` })));
+          setCurrentIndex(0);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const nextSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev + 1) % SLIDES.length);
-  }, []);
+    setCurrentIndex((prev) => (prev + 1) % slides.length);
+  }, [slides.length]);
 
   const prevSlide = useCallback(() => {
-    setCurrentIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length);
-  }, []);
+    setCurrentIndex((prev) => (prev - 1 + slides.length) % slides.length);
+  }, [slides.length]);
 
   const goToSlide = (index: number) => {
     setCurrentIndex(index);

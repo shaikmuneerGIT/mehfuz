@@ -117,6 +117,12 @@ model StockReceiptItem {
   quantity      Int
 }
 
+// Free-form site settings (e.g. hero slideshow content) as JSON strings.
+model Setting {
+  key   String @id
+  value String
+}
+
 model Expense {
   id         String   @id @default(cuid())
   title      String

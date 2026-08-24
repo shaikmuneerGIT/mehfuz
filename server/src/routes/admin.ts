@@ -379,6 +379,30 @@ adminRouter.get("/summary", async (_req, res) => {
   });
 });
 
+// ---- Hero slideshow banners ----
+
+const heroSlideSchema = z.object({
+  image: z.string().min(1),
+  tag: z.string().min(1),
+  title: z.string().min(1),
+  subtitle: z.string().min(1),
+  ctaText: z.string().min(1),
+  ctaLink: z.string().min(1),
+  badge: z.string().min(1),
+});
+
+adminRouter.put("/hero-slides", async (req, res) => {
+  const parsed = z.object({ slides: z.array(heroSlideSchema).min(1).max(8) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid slide data" });
+  const value = JSON.stringify(parsed.data.slides);
+  await prisma.setting.upsert({
+    where: { key: "heroSlides" },
+    update: { value },
+    create: { key: "heroSlides", value },
+  });
+  res.json({ ok: true, slides: parsed.data.slides });
+});
+
 // ---- Database backup ----
 
 // The whole shop lives in one SQLite file; letting the admin download it

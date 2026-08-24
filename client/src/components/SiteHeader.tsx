@@ -66,7 +66,7 @@ export function SiteHeader() {
           {/* Social Media Icons in Top Header Right Corner */}
           <div className="hidden sm:flex items-center gap-1.5 border-r border-gold-500/30 pr-3 mr-1 font-roboto">
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/mehfuzdryfruits"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
@@ -75,7 +75,7 @@ export function SiteHeader() {
               <FaInstagram className="h-3.5 w-3.5" />
             </a>
             <a
-              href="https://facebook.com"
+              href="https://www.facebook.com/mehfuzpremiumdryfruits"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
@@ -93,7 +93,7 @@ export function SiteHeader() {
               <FaWhatsapp className="h-3.5 w-3.5" />
             </a>
             <a
-              href="https://youtube.com"
+              href="https://www.youtube.com/@mehfuzdryfruits"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="YouTube"
@@ -175,10 +175,10 @@ export function SiteHeader() {
           </div>
           {/* Mobile Social Links */}
           <div className="flex items-center justify-center gap-4 border-t border-gold-500/30 px-4 py-4">
-            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-gold-300 hover:text-gold-400 p-2"><FaInstagram className="h-4 w-4" /></a>
-            <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-gold-300 hover:text-gold-400 p-2"><FaFacebookF className="h-4 w-4" /></a>
+            <a href="https://www.instagram.com/mehfuzdryfruits" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="text-gold-300 hover:text-gold-400 p-2"><FaInstagram className="h-4 w-4" /></a>
+            <a href="https://www.facebook.com/mehfuzpremiumdryfruits" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="text-gold-300 hover:text-gold-400 p-2"><FaFacebookF className="h-4 w-4" /></a>
             <a href="https://wa.me/919848918992" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" className="text-gold-300 hover:text-gold-400 p-2"><FaWhatsapp className="h-4 w-4" /></a>
-            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="text-gold-300 hover:text-gold-400 p-2"><FaYoutube className="h-4 w-4" /></a>
+            <a href="https://www.youtube.com/@mehfuzdryfruits" target="_blank" rel="noopener noreferrer" aria-label="YouTube" className="text-gold-300 hover:text-gold-400 p-2"><FaYoutube className="h-4 w-4" /></a>
           </div>
         </nav>
       </div>

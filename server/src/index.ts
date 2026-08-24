@@ -57,6 +57,17 @@ app.get("/api/config/upi", (_req, res) =>
   })
 );
 
+// Admin-managed hero slideshow content; null means "use the built-in slides".
+app.get("/api/config/hero-slides", async (_req, res) => {
+  const { prisma } = await import("./lib/prisma");
+  try {
+    const setting = await prisma.setting.findUnique({ where: { key: "heroSlides" } });
+    res.json({ slides: setting ? JSON.parse(setting.value) : null });
+  } catch {
+    res.json({ slides: null });
+  }
+});
+
 // Uploaded product photos. crossOriginResourcePolicy is relaxed so the
 // storefront can render them when it runs on a different origin.
 app.use(
@@ -134,6 +145,10 @@ async function ensureNewTables() {
       "quantity" INTEGER NOT NULL,
       CONSTRAINT "StockReceiptItem_receiptId_fkey" FOREIGN KEY ("receiptId") REFERENCES "StockReceipt" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
       CONSTRAINT "StockReceiptItem_variantId_fkey" FOREIGN KEY ("variantId") REFERENCES "Variant" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS "Setting" (
+      "key" TEXT NOT NULL PRIMARY KEY,
+      "value" TEXT NOT NULL
     )`,
     `CREATE TABLE IF NOT EXISTS "Expense" (
       "id" TEXT NOT NULL PRIMARY KEY,

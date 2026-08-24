@@ -58,7 +58,7 @@ export function SiteFooter() {
           {/* Social Media Icons with 2026 AI Animations */}
           <div className="mt-6 flex items-center gap-3.5">
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/mehfuzdryfruits"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
@@ -67,7 +67,7 @@ export function SiteFooter() {
               <FaInstagram className="h-4 w-4" />
             </a>
             <a
-              href="https://facebook.com"
+              href="https://www.facebook.com/mehfuzpremiumdryfruits"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
@@ -85,7 +85,7 @@ export function SiteFooter() {
               <FaWhatsapp className="h-4 w-4" />
             </a>
             <a
-              href="https://youtube.com"
+              href="https://www.youtube.com/@mehfuzdryfruits"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="YouTube"
