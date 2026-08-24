@@ -127,11 +127,43 @@ export function ChatBot() {
     },
   ]);
   const [showTracker, setShowTracker] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [thinking, setThinking] = useState(false);
+  // Plain-text transcript of the free-form AI exchange (sent as context).
+  const historyRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    api.get<{ aiEnabled: boolean }>("/config/chat").then((res) => setAiEnabled(res.data.aiEnabled)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, open, showTracker]);
+  }, [messages, open, showTracker, thinking]);
+
+  async function sendFreeform(e: FormEvent) {
+    e.preventDefault();
+    const text = draft.trim();
+    if (!text || thinking) return;
+    setDraft("");
+    setShowTracker(false);
+    setMessages((prev) => [...prev, { from: "user", content: text }]);
+    historyRef.current = [...historyRef.current, { role: "user" as const, content: text }].slice(-10);
+    setThinking(true);
+    try {
+      const res = await api.post<{ reply: string }>("/chat", { messages: historyRef.current });
+      historyRef.current = [...historyRef.current, { role: "assistant" as const, content: res.data.reply }].slice(-10);
+      setMessages((prev) => [...prev, { from: "bot", content: res.data.reply }]);
+    } catch (err) {
+      const msg =
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+        "I couldn't reply just now — please tap a question below or use WhatsApp.";
+      setMessages((prev) => [...prev, { from: "bot", content: msg }]);
+    } finally {
+      setThinking(false);
+    }
+  }
 
   function ask(q: string, a: ReactNode) {
     setShowTracker(false);
@@ -200,9 +232,35 @@ export function ChatBot() {
               }}
             />
           )}
+          {thinking && (
+            <div className="flex justify-start">
+              <div className="rounded-2xl rounded-bl-sm border border-gold-500/30 bg-white px-3.5 py-2 text-xs text-brown-500">
+                typing…
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="border-t border-gold-500/30 bg-white px-3 py-2.5">
+          {aiEnabled && (
+            <form onSubmit={sendFreeform} className="mb-2 flex gap-2">
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Ask me anything about our products…"
+                maxLength={500}
+                className="min-w-0 flex-1 rounded-full border border-gold-500/50 bg-cream-50 px-3.5 py-2 text-xs text-brown-900 focus:border-gold-500 focus:outline-none"
+              />
+              <button
+                type="submit"
+                disabled={thinking || !draft.trim()}
+                aria-label="Send message"
+                className="flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-full bg-brown-950 text-gold-300 hover:bg-brown-900 disabled:opacity-50"
+              >
+                <FiSend className="h-3.5 w-3.5" />
+              </button>
+            </form>
+          )}
           <div className="flex flex-wrap gap-1.5">
             {FAQS.map((f) => (
               <button

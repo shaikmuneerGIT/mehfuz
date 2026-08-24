@@ -21,6 +21,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
     "@prisma/client": "^6.19.3",
     "@types/nodemailer": "^8.0.1",
     "bcryptjs": "^3.0.3",

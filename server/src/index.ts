@@ -11,6 +11,7 @@ import { authRouter } from "./routes/auth";
 import { ordersRouter } from "./routes/orders";
 import { adminRouter } from "./routes/admin";
 import { uploadsRouter, UPLOAD_DIR } from "./routes/uploads";
+import { chatRouter } from "./routes/chat";
 import { errorHandler } from "./middleware/errors";
 
 if (!process.env.JWT_SECRET) {
@@ -57,6 +58,11 @@ app.get("/api/config/upi", (_req, res) =>
   })
 );
 
+// Whether the AI assistant is available (key configured server-side).
+app.get("/api/config/chat", (_req, res) =>
+  res.json({ aiEnabled: Boolean(process.env.ANTHROPIC_API_KEY) })
+);
+
 // Admin-managed hero slideshow content; null means "use the built-in slides".
 app.get("/api/config/hero-slides", async (_req, res) => {
   const { prisma } = await import("./lib/prisma");
@@ -83,6 +89,7 @@ app.use("/api/auth", authLimiter, authRouter);
 app.use("/api/orders", ordersRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
+app.use("/api/chat", chatRouter);
 
 // Unmatched API routes are a 404 regardless of the storefront below.
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));
