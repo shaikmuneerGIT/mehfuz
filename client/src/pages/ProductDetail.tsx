@@ -82,7 +82,7 @@ export function ProductDetail() {
       productSlug: product.slug,
       categoryName: product.category.name,
     });
-    navigate("/cart");
+    navigate("/checkout");
   }
 
   return (

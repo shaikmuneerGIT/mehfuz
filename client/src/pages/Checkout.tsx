@@ -55,7 +55,7 @@ export function Checkout() {
   const paymentMethod: "COD" | "UPI" = upiConfig?.enabled ? "UPI" : "COD";
 
   if (lines.length === 0) {
-    return <Navigate to="/cart" replace />;
+    return <Navigate to="/shop" replace />;
   }
 
   const shippingInr = subtotalInr >= SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
@@ -92,7 +92,7 @@ export function Checkout() {
         image="/images/hero_banner_4.jpg"
         title="Checkout"
         subtitle="Complete your shipping details to place your harvest order."
-        breadcrumbs={[{ label: "Cart", href: "/cart" }, { label: "Checkout" }]}
+        breadcrumbs={[{ label: "Shop", href: "/shop" }, { label: "Checkout" }]}
       />
 
       <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 font-roboto">

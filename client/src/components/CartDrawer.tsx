@@ -143,12 +143,6 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
               >
                 Checkout — {formatInr(subtotalInr)}
               </button>
-              <button
-                onClick={() => goTo("/cart")}
-                className="mt-2 w-full rounded-full border border-gold-500/50 bg-cream-50 py-2.5 text-sm font-semibold text-brown-800 transition hover:border-gold-500 hover:bg-cream-100"
-              >
-                View Full Cart
-              </button>
             </div>
           </>
         )}

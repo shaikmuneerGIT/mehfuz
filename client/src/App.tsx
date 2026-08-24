@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
 import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
 import { RequireAdmin } from "./components/RequireAdmin";
@@ -9,7 +9,6 @@ import { About } from "./pages/About";
 import { Contact } from "./pages/Contact";
 import { Blog } from "./pages/Blog";
 import { ProductDetail } from "./pages/ProductDetail";
-import { Cart } from "./pages/Cart";
 import { Checkout } from "./pages/Checkout";
 import { OrderConfirmed } from "./pages/OrderConfirmed";
 import { AdminLogin } from "./pages/admin/AdminLogin";
@@ -40,7 +39,8 @@ export default function App() {
       <Route path="/blog" element={<StorefrontLayout><Blog /></StorefrontLayout>} />
       <Route path="/contact" element={<StorefrontLayout><Contact /></StorefrontLayout>} />
       <Route path="/product/:slug" element={<StorefrontLayout><ProductDetail /></StorefrontLayout>} />
-      <Route path="/cart" element={<StorefrontLayout><Cart /></StorefrontLayout>} />
+      {/* The cart lives in the slide-over drawer; old /cart links go to the shop. */}
+      <Route path="/cart" element={<Navigate to="/shop" replace />} />
       <Route path="/checkout" element={<StorefrontLayout><Checkout /></StorefrontLayout>} />
       <Route
         path="/order-confirmed/:orderNumber"
