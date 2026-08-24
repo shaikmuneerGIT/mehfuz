@@ -120,8 +120,8 @@ export function ChatBot() {
       from: "bot",
       content: (
         <>
-          Assalamu alaikum! 🌰 Welcome to <b>Mehfuz</b>. I can help with delivery, payment,
-          order status, and bulk enquiries — tap a question below.
+          Welcome to <b>Mehfuz</b>! 🌰 I can help with delivery, payment, order status, and
+          bulk enquiries — tap a question below.
         </>
       ),
     },
