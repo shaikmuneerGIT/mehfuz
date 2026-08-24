@@ -44,12 +44,15 @@ export function Checkout() {
   const [form, setForm] = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<"COD" | "UPI">("COD");
   const [upiConfig, setUpiConfig] = useState<UpiConfig | null>(null);
 
   useEffect(() => {
     api.get<UpiConfig>("/config/upi").then((res) => setUpiConfig(res.data)).catch(() => {});
   }, []);
+
+  // UPI (QR + transaction reference) is the payment method; COD only
+  // remains as a fallback while UPI is not yet configured on the server.
+  const paymentMethod: "COD" | "UPI" = upiConfig?.enabled ? "UPI" : "COD";
 
   if (lines.length === 0) {
     return <Navigate to="/cart" replace />;
@@ -177,41 +180,27 @@ export function Checkout() {
 
             <div className="rounded-xl border border-gold-500/30 bg-cream-50/90 p-6 shadow-sm">
               <h2 className="font-serif mb-3 text-lg font-bold text-brown-950">Payment</h2>
-              <div className="space-y-3">
-                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gold-500/30 p-3 has-[:checked]:border-gold-500 has-[:checked]:bg-cream-100/60">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    checked={paymentMethod === "COD"}
-                    onChange={() => setPaymentMethod("COD")}
-                    className="mt-1"
-                  />
+              {paymentMethod === "UPI" ? (
+                <div className="flex items-start gap-3 rounded-lg border border-gold-500 bg-cream-100/60 p-3">
+                  <span className="text-sm font-roboto">
+                    <span className="block font-semibold text-brown-950">Pay by UPI (QR code)</span>
+                    <span className="text-brown-700">
+                      After placing the order you'll see a QR code — scan it with any UPI app
+                      (GPay, PhonePe, Paytm), pay, and enter the transaction reference. We pack
+                      your order once the payment is confirmed.
+                    </span>
+                  </span>
+                </div>
+              ) : (
+                <div className="flex items-start gap-3 rounded-lg border border-gold-500/30 p-3">
                   <span className="text-sm font-roboto">
                     <span className="block font-semibold text-brown-950">Cash on Delivery</span>
                     <span className="text-brown-700">
                       Pay when your order arrives. Our team may call to confirm.
                     </span>
                   </span>
-                </label>
-                {upiConfig?.enabled && (
-                  <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-gold-500/30 p-3 has-[:checked]:border-gold-500 has-[:checked]:bg-cream-100/60">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      checked={paymentMethod === "UPI"}
-                      onChange={() => setPaymentMethod("UPI")}
-                      className="mt-1"
-                    />
-                    <span className="text-sm font-roboto">
-                      <span className="block font-semibold text-brown-950">Pay now by UPI</span>
-                      <span className="text-brown-700">
-                        Scan a QR code with any UPI app after placing the order. We pack your
-                        order once the payment is confirmed.
-                      </span>
-                    </span>
-                  </label>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {error && (

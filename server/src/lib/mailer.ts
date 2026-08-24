@@ -55,19 +55,32 @@ export function sendOrderNotifications(order: OrderWithItems): void {
   const body = orderLines(order);
 
   if (order.email) {
+    const isUnpaidUpi = order.paymentMethod === "UPI" && order.paymentStatus !== "PAID";
+    const upiId = process.env.UPI_ID;
+    const payUrl = `https://mehfuzdryfruits.in/order-confirmed/${order.orderNumber}`;
     transport
       .sendMail({
         from,
         to: order.email,
-        subject: `Order confirmed — ${order.orderNumber} | Mehfuz Dry Fruits`,
+        subject: isUnpaidUpi
+          ? `Complete your payment — order ${order.orderNumber} | Mehfuz Dry Fruits`
+          : `Order confirmed — ${order.orderNumber} | Mehfuz Dry Fruits`,
         text:
           `Dear ${order.customerName},\n\n` +
           `Thank you for shopping with Mehfuz! Your order has been placed.\n\n` +
           `${body}\n\n` +
-          (order.paymentMethod === "UPI"
-            ? `We will pack your order as soon as your UPI payment is confirmed.\n\n`
-            : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
-          `Questions? Call +91 98489 18992.\n\nMehfuz — Premium Dry Fruits & Commodities\nhttps://mehfuzdryfruits.in`,
+          (isUnpaidUpi
+            ? `TO COMPLETE YOUR PAYMENT (${formatInr(order.totalInr)}):\n` +
+              `  1. Open this link to see the QR code: ${payUrl}\n` +
+              `  2. Scan it with any UPI app (GPay, PhonePe, Paytm)` +
+              (upiId ? `, or pay directly to UPI ID: ${upiId}\n` : `\n`) +
+              `  3. Put your order number ${order.orderNumber} in the payment note\n` +
+              `  4. Enter the transaction reference (UTR) on the same page\n\n` +
+              `We pack your order as soon as the payment is confirmed.\n\n`
+            : order.paymentMethod === "UPI"
+              ? `We will pack your order as soon as your UPI payment is confirmed.\n\n`
+              : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
+          `Questions? Call or WhatsApp +91 98489 18992.\n\nMehfuz — Premium Dry Fruits & Commodities\nhttps://mehfuzdryfruits.in`,
       })
       .catch((err) => console.error("Customer email failed:", err.message));
   }
