@@ -32,8 +32,8 @@ export function Contact() {
       {/* 200px Height Full-Width Header Banner */}
       <PageBanner
         title="Contact Us"
-        subtitle="We'd love to hear from you — orders, bulk enquiries, or anything else."
-        breadcrumbs={[{ label: "Contact" }]}
+        subtitle="Get in touch with our team for bulk orders, support, and inquiries."
+        breadcrumbs={[{ label: "Contact Us" }]}
       />
 
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-14 font-roboto">

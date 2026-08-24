@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../../api/client";
 import type { Category } from "../../types";
 import { SectionTitle } from "../art/Ornaments";
+import { PRODUCT_ART, resolveArtKey } from "../art/ProductArt";
 
 export function PopularCategoriesSection() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -25,30 +26,42 @@ export function PopularCategoriesSection() {
         <div className="ai-marquee-track flex gap-5 px-4">
           {[...categories, ...categories].map((c, index) => {
             const s = (c.slug + " " + c.name).toLowerCase();
-            let photoUrl = "/images/realistic_dry_fruits_banner_1.jpg";
-            if (s.includes("fig") || s.includes("anjeer")) photoUrl = "/images/hero_banner_1.jpg";
-            else if (s.includes("saffron") || s.includes("kesar")) photoUrl = "/images/hero_banner_2.jpg";
-            else if (s.includes("nut") || s.includes("walnut") || s.includes("almond") || s.includes("pista")) photoUrl = "/images/hero_banner_3.jpg";
-            else if (s.includes("date")) photoUrl = "/images/hero_banner_4.jpg";
-            else if (s.includes("coffee") || s.includes("spice")) photoUrl = "/images/realistic_dry_fruits_banner_2.jpg";
+            let photoUrl: string | null = null;
+
+            if (s.includes("date")) photoUrl = "/products/medjol_dates.png";
+            else if (s.includes("fig") || s.includes("anjeer")) photoUrl = "/products/anjeer.png";
+            else if (s.includes("walnut")) photoUrl = "/products/walnut.png";
+            else if (s.includes("almond") || s.includes("badam")) photoUrl = "/products/almonds.png";
+            else if (s.includes("cashew") || s.includes("pista") || (s.includes("nut") && !s.includes("date") && !s.includes("seed"))) photoUrl = "/products/almonds.png";
+            else if (s.includes("black") || s.includes("berry")) photoUrl = "/products/raisins_black.png";
+            else if (s.includes("raisin") || s.includes("kishmish")) photoUrl = "/products/raisins_yellow.png";
+            else if (s.includes("dried-fruit") || s.includes("apricot")) photoUrl = "/products/apricot.png";
+            else if (s.includes("seed")) photoUrl = "/products/pumpkin_seeds.png";
+            else if (s.includes("saffron") || s.includes("kesar")) photoUrl = "/products/saffron.png";
+
+            const Art = PRODUCT_ART[resolveArtKey("", c.slug)];
 
             return (
               <Link
                 key={`${c.id}-${index}`}
                 to={`/shop?category=${c.slug}`}
-                className="ai-category-card group flex shrink-0 flex-col items-center justify-center rounded-2xl border border-gold-500/40 bg-cream-50/95 p-4 shadow-sm min-w-[160px] sm:min-w-[180px] text-center font-roboto"
+                className="group flex shrink-0 flex-col items-center justify-center p-3 min-w-[180px] sm:min-w-[210px] text-center font-roboto transition-transform duration-300"
               >
-                {/* Top Original Realistic Picture */}
-                <div className="relative h-24 w-24 sm:h-28 sm:w-28 rounded-2xl border-2 border-gold-500/60 p-0.5 shadow-md bg-white overflow-hidden group-hover:border-gold-600 transition-colors">
-                  <img
-                    src={photoUrl}
-                    alt={c.name}
-                    className="h-full w-full object-cover rounded-xl transform group-hover:scale-110 transition-transform duration-500"
-                  />
+                {/* Large Clean Category Product Image without Card Box */}
+                <div className="relative h-32 w-32 sm:h-40 sm:w-40 flex items-center justify-center overflow-hidden">
+                  {photoUrl ? (
+                    <img
+                      src={photoUrl}
+                      alt={c.name}
+                      className="h-full w-full object-contain filter drop-shadow-md transform group-hover:scale-110 transition-transform duration-500"
+                    />
+                  ) : (
+                    <Art className="h-full w-full p-1.5 transform group-hover:scale-110 transition-transform duration-500" />
+                  )}
                 </div>
 
-                {/* Bottom Category Name Only */}
-                <div className="mt-3 font-serif text-sm sm:text-base font-bold text-brown-950 group-hover:text-forest-800 transition-colors leading-snug">
+                {/* Larger Category Name */}
+                <div className="mt-3 font-serif text-base sm:text-lg font-bold text-brown-950 group-hover:text-gold-700 transition-colors leading-snug">
                   {c.name}
                 </div>
               </Link>
