@@ -1,3 +1,5 @@
+import path from "node:path";
+import fs from "node:fs";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
@@ -332,8 +334,10 @@ adminRouter.delete("/expenses/:id", async (req, res) => {
 
 // ---- Dashboard summary ----
 
+const LOW_STOCK_THRESHOLD = 5;
+
 adminRouter.get("/summary", async (_req, res) => {
-  const [productCount, orderCount, pendingOrders, revenueAgg, stockCostAgg, expenseAgg] =
+  const [productCount, orderCount, pendingOrders, revenueAgg, stockCostAgg, expenseAgg, lowStock] =
     await Promise.all([
       prisma.product.count(),
       prisma.order.count(),
@@ -344,6 +348,16 @@ adminRouter.get("/summary", async (_req, res) => {
       }),
       prisma.stockReceipt.aggregate({ _sum: { totalCostInr: true } }),
       prisma.expense.aggregate({ _sum: { amountInr: true } }),
+      prisma.variant.findMany({
+        where: {
+          stock: { lte: LOW_STOCK_THRESHOLD },
+          isActive: true,
+          product: { isActive: true },
+        },
+        include: { product: { select: { name: true } } },
+        orderBy: { stock: "asc" },
+        take: 15,
+      }),
     ]);
   const totalRevenueInr = revenueAgg._sum.totalInr ?? 0;
   const totalStockCostInr = stockCostAgg._sum.totalCostInr ?? 0;
@@ -356,5 +370,26 @@ adminRouter.get("/summary", async (_req, res) => {
     totalStockCostInr,
     totalExpensesInr,
     profitInr: totalRevenueInr - totalStockCostInr - totalExpensesInr,
+    lowStock: lowStock.map((v) => ({
+      variantId: v.id,
+      productName: v.product.name,
+      label: v.label,
+      stock: v.stock,
+    })),
   });
+});
+
+// ---- Database backup ----
+
+// The whole shop lives in one SQLite file; letting the admin download it
+// from the panel beats asking them to dig through the hosting file manager.
+adminRouter.get("/backup", (_req, res) => {
+  const dbPath = process.env.DB_FILE
+    ? path.resolve(process.env.DB_FILE)
+    : path.resolve(process.cwd(), "prisma", "prod.db");
+  if (!fs.existsSync(dbPath)) {
+    return res.status(404).json({ error: "Database file not found on this server" });
+  }
+  const stamp = new Date().toISOString().slice(0, 10);
+  res.download(dbPath, `mehfuz-backup-${stamp}.db`);
 });

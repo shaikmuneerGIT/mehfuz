@@ -137,9 +137,19 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   res.status(201).json(order);
 });
 
-ordersRouter.get("/:orderNumber", async (req, res) => {
+// Order numbers are date + 4 random digits, so without a limiter an
+// attacker could enumerate them and harvest customer addresses.
+const lookupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many order lookups. Please try again later." },
+});
+
+ordersRouter.get("/:orderNumber", lookupLimiter, async (req, res) => {
   const order = await prisma.order.findUnique({
-    where: { orderNumber: req.params.orderNumber },
+    where: { orderNumber: req.params.orderNumber as string },
     include: { items: true },
   });
   if (!order) return res.status(404).json({ error: "Order not found" });

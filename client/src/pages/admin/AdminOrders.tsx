@@ -18,6 +18,7 @@ export function AdminOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   function load() {
     setLoading(true);
@@ -42,17 +43,44 @@ export function AdminOrders() {
     );
   }
 
+  const visible =
+    statusFilter === "ALL"
+      ? orders
+      : statusFilter === "UPI_UNPAID"
+        ? orders.filter((o) => o.paymentMethod === "UPI" && o.paymentStatus !== "PAID")
+        : orders.filter((o) => o.status === statusFilter);
+
   return (
     <div>
-      <h1 className="font-display mb-6 text-2xl font-bold text-brown-950">Orders</h1>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-2xl font-bold text-brown-950">Orders</h1>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="rounded-lg border border-gold-500/40 bg-white px-3 py-1.5 text-sm text-brown-800"
+        >
+          <option value="ALL">All orders ({orders.length})</option>
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s} ({orders.filter((o) => o.status === s).length})
+            </option>
+          ))}
+          <option value="UPI_UNPAID">
+            UPI unpaid (
+            {orders.filter((o) => o.paymentMethod === "UPI" && o.paymentStatus !== "PAID").length})
+          </option>
+        </select>
+      </div>
 
       {loading ? (
         <p className="text-brown-500">Loading...</p>
-      ) : orders.length === 0 ? (
-        <p className="text-brown-500">No orders yet.</p>
+      ) : visible.length === 0 ? (
+        <p className="text-brown-500">
+          {orders.length === 0 ? "No orders yet." : "No orders match this filter."}
+        </p>
       ) : (
         <div className="space-y-3">
-          {orders.map((o) => (
+          {visible.map((o) => (
             <div key={o.id} className="rounded-xl border border-gold-500/30 bg-white p-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
