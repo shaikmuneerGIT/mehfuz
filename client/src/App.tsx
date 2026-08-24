@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
+import { ChatBot } from "./components/ChatBot";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { Home } from "./pages/Home";
 import { Shop } from "./pages/Shop";
@@ -27,6 +28,7 @@ function StorefrontLayout({ children }: { children: ReactNode }) {
       <SiteHeader />
       <main className="flex-1">{children}</main>
       <SiteFooter />
+      <ChatBot />
     </div>
   );
 }
