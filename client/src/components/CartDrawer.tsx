@@ -255,7 +255,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             )}
             <div className="mt-3 flex items-center justify-between border-t border-gold-500/30 pt-3">
               <span className="font-serif text-sm font-bold uppercase tracking-wider text-brown-950">
-                Estimated Total
+                Total
               </span>
               <span className="font-serif text-xl font-bold text-brown-950">
                 {formatInr(totalInr)}
