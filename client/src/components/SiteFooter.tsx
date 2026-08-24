@@ -100,7 +100,12 @@ export function SiteFooter() {
       <Divider className="mx-auto max-w-md opacity-50" />
 
       <div className="py-5 text-center text-xs text-cream-100/50">
-        © {new Date().getFullYear()} Mehfuz Premium Dry Fruits &amp; Commodities. All rights reserved.
+        <p>
+          © {new Date().getFullYear()} Mehfuz Premium Dry Fruits &amp; Commodities. All rights reserved.
+        </p>
+        <p className="mt-1 tracking-wide">
+          FSSAI Registration No: <span className="font-semibold text-cream-100/70">23626443000038</span>
+        </p>
       </div>
     </footer>
   );
