@@ -31,7 +31,7 @@ export function Contact() {
     <div className="min-h-screen parchment font-roboto">
       {/* 200px Height Full-Width Header Banner */}
       <PageBanner
-        image="/images/hero_banner_1.jpg"
+        image="/images/hero_banner_1.webp"
         title="Contact Us"
         subtitle="Get in touch with our team for bulk orders, support, and inquiries."
         breadcrumbs={[{ label: "Contact Us" }]}

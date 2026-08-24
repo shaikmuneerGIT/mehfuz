@@ -17,7 +17,7 @@ export function PageBanner({
   title,
   subtitle,
   breadcrumbs,
-  image = "/images/realistic_dry_fruits_banner_2.jpg",
+  image = "/images/realistic_dry_fruits_banner_2.webp",
 }: PageBannerProps) {
   return (
     <div className="relative h-[200px] w-full overflow-hidden border-b border-gold-500/40 bg-gradient-to-r from-cream-100 via-gold-100/90 to-cream-100 px-4 sm:px-6 flex flex-col justify-center shadow-sm select-none">
@@ -30,8 +30,9 @@ export function PageBanner({
         />
       </div>
 
-      {/* Cream scrim so the dark serif title stays legible over the photo */}
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-cream-50/80 via-cream-50/65 to-cream-50/80" />
+      {/* Soft glow behind the text only — keeps the photography rich at the
+          edges while the dark serif title stays legible in the middle. */}
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_130%_at_center,rgba(250,246,232,0.95)_0%,rgba(250,246,232,0.75)_45%,rgba(250,246,232,0.25)_70%,transparent_100%)]" />
 
       <div className="relative z-10 mx-auto w-full max-w-7xl text-center font-roboto">
         {breadcrumbs && breadcrumbs.length > 0 && (

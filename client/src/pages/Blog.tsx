@@ -9,7 +9,7 @@ const BLOG_POSTS = [
     date: "Aug 18, 2026",
     readTime: "4 min read",
     excerpt: "Discover how ancestral alpine harvesting techniques in Kandahar yield the world's sweet, plump, fiber-rich dried figs.",
-    image: "/images/hero_banner_1.jpg",
+    image: "/images/hero_banner_1.webp",
   },
   {
     id: 2,
@@ -18,7 +18,7 @@ const BLOG_POSTS = [
     date: "Aug 12, 2026",
     readTime: "5 min read",
     excerpt: "Learn how Pampore dawn harvests create deep crimson stigmas with unmatched aroma and high crocin testing.",
-    image: "/images/hero_banner_2.jpg",
+    image: "/images/hero_banner_2.webp",
   },
   {
     id: 3,
@@ -27,7 +27,7 @@ const BLOG_POSTS = [
     date: "Aug 05, 2026",
     readTime: "3 min read",
     excerpt: "Expert tips on preserving crunch, natural oils, and essential Omega-3 fatty acids in your luxury dry fruit collection.",
-    image: "/images/hero_banner_3.jpg",
+    image: "/images/hero_banner_3.webp",
   },
   {
     id: 4,
@@ -36,7 +36,7 @@ const BLOG_POSTS = [
     date: "Jul 28, 2026",
     readTime: "4 min read",
     excerpt: "Explore shade-grown Arabica coffee and bold sun-dried black peppercorns harvested in the misty Western Ghats.",
-    image: "/images/realistic_dry_fruits_banner_2.jpg",
+    image: "/images/realistic_dry_fruits_banner_2.webp",
   },
   {
     id: 5,
@@ -45,7 +45,7 @@ const BLOG_POSTS = [
     date: "Jul 20, 2026",
     readTime: "3 min read",
     excerpt: "Why organic shell-cracked Kashmiri walnut kernels are essential for brain health, heart vitality, and daily energy.",
-    image: "/images/realistic_dry_fruits_banner_1.jpg",
+    image: "/images/realistic_dry_fruits_banner_1.webp",
   },
   {
     id: 6,
@@ -54,7 +54,7 @@ const BLOG_POSTS = [
     date: "Jul 15, 2026",
     readTime: "4 min read",
     excerpt: "A guide to crafting personalized wooden gift hampers with premium dry fruits, dates, and saffron for festive occasions.",
-    image: "/images/hero_banner_4.jpg",
+    image: "/images/hero_banner_4.webp",
   },
 ];
 
@@ -63,7 +63,7 @@ export function Blog() {
     <div className="parchment min-h-screen font-roboto">
       {/* 200px Height Full-Width Header Banner */}
       <PageBanner
-        image="/images/hero_banner_3.jpg"
+        image="/images/hero_banner_3.webp"
         title="Harvest Journal & Articles"
         subtitle="Insights into direct origin sourcing, purity testing, healthy living & luxury gift hampers."
         breadcrumbs={[{ label: "Blog" }]}

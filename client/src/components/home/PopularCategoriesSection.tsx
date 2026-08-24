@@ -28,16 +28,16 @@ export function PopularCategoriesSection() {
             const s = (c.slug + " " + c.name).toLowerCase();
             let photoUrl: string | null = null;
 
-            if (s.includes("date")) photoUrl = "/products/medjol_dates.png";
-            else if (s.includes("fig") || s.includes("anjeer")) photoUrl = "/products/anjeer.png";
-            else if (s.includes("walnut")) photoUrl = "/products/walnut.png";
-            else if (s.includes("almond") || s.includes("badam")) photoUrl = "/products/almonds.png";
-            else if (s.includes("cashew") || s.includes("pista") || (s.includes("nut") && !s.includes("date") && !s.includes("seed"))) photoUrl = "/products/almonds.png";
-            else if (s.includes("black") || s.includes("berry")) photoUrl = "/products/raisins_black.png";
-            else if (s.includes("raisin") || s.includes("kishmish")) photoUrl = "/products/raisins_yellow.png";
-            else if (s.includes("dried-fruit") || s.includes("apricot")) photoUrl = "/products/apricot.png";
-            else if (s.includes("seed")) photoUrl = "/products/pumpkin_seeds.png";
-            else if (s.includes("saffron") || s.includes("kesar")) photoUrl = "/products/saffron.png";
+            if (s.includes("date")) photoUrl = "/products/medjol_dates.webp";
+            else if (s.includes("fig") || s.includes("anjeer")) photoUrl = "/products/anjeer.webp";
+            else if (s.includes("walnut")) photoUrl = "/products/walnut.webp";
+            else if (s.includes("almond") || s.includes("badam")) photoUrl = "/products/almonds.webp";
+            else if (s.includes("cashew") || s.includes("pista") || (s.includes("nut") && !s.includes("date") && !s.includes("seed"))) photoUrl = "/products/almonds.webp";
+            else if (s.includes("black") || s.includes("berry")) photoUrl = "/products/raisins_black.webp";
+            else if (s.includes("raisin") || s.includes("kishmish")) photoUrl = "/products/raisins_yellow.webp";
+            else if (s.includes("dried-fruit") || s.includes("apricot")) photoUrl = "/products/apricot.webp";
+            else if (s.includes("seed")) photoUrl = "/products/pumpkin_seeds.webp";
+            else if (s.includes("saffron") || s.includes("kesar")) photoUrl = "/products/saffron.webp";
 
             const Art = PRODUCT_ART[resolveArtKey("", c.slug)];
 
