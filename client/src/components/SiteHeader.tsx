@@ -25,7 +25,10 @@ export function SiteHeader() {
   const [cartOpen, setCartOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gold-500/40 bg-black shadow-lg backdrop-blur">
+    {/* NOTE: no backdrop-blur here — backdrop-filter creates a CSS containing
+        block that would clip the fixed-position cart/menu drawers to the
+        header's box (and bg-black is opaque, so blur showed nothing anyway). */}
+    <header className="sticky top-0 z-50 border-b border-gold-500/40 bg-black shadow-lg">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
         <Link to="/" aria-label="Mehfuz home" className="shrink-0">
           <Wordmark />
