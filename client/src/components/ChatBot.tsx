@@ -149,6 +149,29 @@ export function ChatBot() {
     setDraft("");
     setShowTracker(false);
     setMessages((prev) => [...prev, { from: "user", content: text }]);
+
+    // Without the AI configured, typed messages continue on WhatsApp with
+    // the text pre-filled — the box always works.
+    if (!aiEnabled) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          from: "bot",
+          content: (
+            <>
+              Let me connect you to our team on WhatsApp — your message is ready to send
+              there. 👋
+            </>
+          ),
+        },
+      ]);
+      window.open(
+        `${WHATSAPP}?text=${encodeURIComponent(`Hello Mehfuz! ${text}`)}`,
+        "_blank",
+        "noopener,noreferrer"
+      );
+      return;
+    }
     historyRef.current = [...historyRef.current, { role: "user" as const, content: text }].slice(-10);
     setThinking(true);
     try {
@@ -242,25 +265,25 @@ export function ChatBot() {
         </div>
 
         <div className="border-t border-gold-500/30 bg-white px-3 py-2.5">
-          {aiEnabled && (
-            <form onSubmit={sendFreeform} className="mb-2 flex gap-2">
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Ask me anything about our products…"
-                maxLength={500}
-                className="min-w-0 flex-1 rounded-full border border-gold-500/50 bg-cream-50 px-3.5 py-2 text-xs text-brown-900 focus:border-gold-500 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={thinking || !draft.trim()}
-                aria-label="Send message"
-                className="flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-full bg-brown-950 text-gold-300 hover:bg-brown-900 disabled:opacity-50"
-              >
-                <FiSend className="h-3.5 w-3.5" />
-              </button>
-            </form>
-          )}
+          <form onSubmit={sendFreeform} className="mb-2 flex gap-2">
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder={
+                aiEnabled ? "Ask me anything about our products…" : "Type your message…"
+              }
+              maxLength={500}
+              className="min-w-0 flex-1 rounded-full border border-gold-500/50 bg-cream-50 px-3.5 py-2 text-xs text-brown-900 focus:border-gold-500 focus:outline-none"
+            />
+            <button
+              type="submit"
+              disabled={thinking || !draft.trim()}
+              aria-label="Send message"
+              className="flex h-8 w-8 shrink-0 items-center justify-center self-center rounded-full bg-brown-950 text-gold-300 hover:bg-brown-900 disabled:opacity-50"
+            >
+              <FiSend className="h-3.5 w-3.5" />
+            </button>
+          </form>
           <div className="flex flex-wrap gap-1.5">
             {FAQS.map((f) => (
               <button
