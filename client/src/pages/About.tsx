@@ -14,7 +14,7 @@ export function About() {
     <div className="parchment min-h-screen font-roboto">
       {/* 200px Height Full-Width Header Banner */}
       <PageBanner
-        image="/images/sourcing_team_bg.webp"
+        image="/images/sourcing_team_bg.webp?v=3"
         title="About Us"
         subtitle="Sourced at the origin, delivered to your door."
         breadcrumbs={[{ label: "About" }]}

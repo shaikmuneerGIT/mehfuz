@@ -90,7 +90,7 @@ export function Checkout() {
   return (
     <div className="parchment min-h-screen font-roboto">
       <PageBanner
-        image="/images/hero_banner_4.webp"
+        image="/images/hero_banner_4.webp?v=3"
         title="Checkout"
         subtitle="Complete your shipping details to place your harvest order."
         breadcrumbs={[{ label: "Shop", href: "/shop" }, { label: "Checkout" }]}

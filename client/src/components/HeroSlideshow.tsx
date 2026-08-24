@@ -17,7 +17,7 @@ export interface SlideItem {
 export const DEFAULT_SLIDES: SlideItem[] = [
   {
     id: "anjeer",
-    image: "/images/hero_banner_1.webp",
+    image: "/images/hero_banner_1.webp?v=3",
     tag: "Natural Harvest 2026",
     title: "Handpicked Afghan Premium Anjeer",
     subtitle:
@@ -28,7 +28,7 @@ export const DEFAULT_SLIDES: SlideItem[] = [
   },
   {
     id: "saffron",
-    image: "/images/hero_banner_2.webp",
+    image: "/images/hero_banner_2.webp?v=3",
     tag: "Kashmiri Valley Reserve",
     title: "Pure Crimson Saffron & Snow Walnuts",
     subtitle:
@@ -39,7 +39,7 @@ export const DEFAULT_SLIDES: SlideItem[] = [
   },
   {
     id: "dates",
-    image: "/images/hero_banner_3.webp",
+    image: "/images/hero_banner_3.webp?v=3",
     tag: "Royal Collection",
     title: "Premium Medjool Dates & Roasted Pistachios",
     subtitle:
@@ -50,7 +50,7 @@ export const DEFAULT_SLIDES: SlideItem[] = [
   },
   {
     id: "gifting",
-    image: "/images/hero_banner_4.webp",
+    image: "/images/hero_banner_4.webp?v=3",
     tag: "Artisanal Luxury Gifting",
     title: "Exclusive Dry Fruit & Spice Hampers",
     subtitle:

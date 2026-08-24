@@ -31,7 +31,7 @@ export function Logo({
     return (
       <div className={`inline-flex items-center justify-center ${className}`}>
         <img
-          src="/images/logo.webp"
+          src="/images/logo.webp?v=3"
           alt="MEHFUZ Premium Dry Fruits & Commodities"
           onError={() => setImgError(true)}
           className={`object-contain transition-transform duration-300 hover:scale-[1.02] ${variant === "header" ? "h-16 sm:h-22 w-auto py-1" : defaultImgSize

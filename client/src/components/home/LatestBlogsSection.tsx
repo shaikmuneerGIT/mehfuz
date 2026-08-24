@@ -10,7 +10,7 @@ const BLOGS = [
     date: "Aug 18, 2026",
     readTime: "4 min read",
     excerpt: "Discover how ancestral alpine harvesting techniques yield the world's sweet, plump, fiber-rich dried figs.",
-    image: "/images/hero_banner_1.webp",
+    image: "/images/hero_banner_1.webp?v=3",
   },
   {
     id: 2,
@@ -19,7 +19,7 @@ const BLOGS = [
     date: "Aug 12, 2026",
     readTime: "5 min read",
     excerpt: "Learn how Pampore dawn harvests create deep crimson stigmas with unmatched aroma and high crocin content.",
-    image: "/images/hero_banner_2.webp",
+    image: "/images/hero_banner_2.webp?v=3",
   },
   {
     id: 3,
@@ -28,7 +28,7 @@ const BLOGS = [
     date: "Aug 05, 2026",
     readTime: "3 min read",
     excerpt: "Expert tips on preserving crunch, natural oils, and essential Omega-3 fatty acids in your luxury dry fruit collection.",
-    image: "/images/hero_banner_3.webp",
+    image: "/images/hero_banner_3.webp?v=3",
   },
 ];
 

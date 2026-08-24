@@ -8,7 +8,7 @@ export function QuickContactSection() {
           {/* Background Image inside Inner Section Box */}
           <div className="pointer-events-none absolute inset-0">
             <img
-              src="/images/sourcing_team_bg.webp"
+              src="/images/sourcing_team_bg.webp?v=3"
               alt="Mehfuz Sourcing Team Dry Fruits Background"
               className="h-full w-full object-cover object-center"
             />

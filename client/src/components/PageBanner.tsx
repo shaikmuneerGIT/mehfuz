@@ -17,7 +17,7 @@ export function PageBanner({
   title,
   subtitle,
   breadcrumbs,
-  image = "/images/realistic_dry_fruits_banner_2.webp",
+  image = "/images/realistic_dry_fruits_banner_2.webp?v=3",
 }: PageBannerProps) {
   return (
     <div className="relative h-[200px] w-full overflow-hidden border-b border-gold-500/40 bg-gradient-to-r from-cream-100 via-gold-100/90 to-cream-100 px-4 sm:px-6 flex flex-col justify-center shadow-sm select-none">

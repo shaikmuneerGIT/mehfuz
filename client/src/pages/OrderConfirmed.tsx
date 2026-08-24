@@ -151,7 +151,7 @@ export function OrderConfirmed() {
   return (
     <div className="parchment min-h-screen font-roboto">
       <PageBanner
-        image="/images/hero_banner_4.webp"
+        image="/images/hero_banner_4.webp?v=3"
         title="Order Confirmed!"
         subtitle={`Thank you for your order. Order #${orderNumber}`}
         breadcrumbs={[{ label: "Order Confirmed" }]}

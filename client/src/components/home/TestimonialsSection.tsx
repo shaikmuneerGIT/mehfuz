@@ -31,7 +31,7 @@ export function TestimonialsSection() {
       {/* Realistic Dry Fruits Background Image Overlay */}
       <div className="pointer-events-none absolute inset-0">
         <img
-          src="/images/realistic_dry_fruits_banner_2.webp"
+          src="/images/realistic_dry_fruits_banner_2.webp?v=3"
           alt="Dry Fruits Background"
           className="h-full w-full object-cover object-center"
         />

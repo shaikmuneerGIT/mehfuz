@@ -6,51 +6,51 @@ export function resolveProductImagePath(name: string, categorySlug?: string): st
   const n = (name + " " + (categorySlug || "")).toLowerCase();
 
   // Dates
-  if (n.includes("khudri")) return "/products/khudri_dates.webp";
-  if (n.includes("mabroom")) return "/products/mabroom_dates.webp";
-  if (n.includes("mashooq")) return "/products/mashooq_dates.webp";
-  if (n.includes("medjool") || n.includes("medjol")) return "/products/medjol_dates.webp";
-  if (n.includes("safawi")) return "/products/safawi_dates.webp";
-  if (n.includes("tunisian")) return "/products/tunisian_dates.webp";
-  if (n.includes("date")) return "/products/medjol_dates.webp";
+  if (n.includes("khudri")) return "/products/khudri_dates.webp?v=3";
+  if (n.includes("mabroom")) return "/products/mabroom_dates.webp?v=3";
+  if (n.includes("mashooq")) return "/products/mashooq_dates.webp?v=3";
+  if (n.includes("medjool") || n.includes("medjol")) return "/products/medjol_dates.webp?v=3";
+  if (n.includes("safawi")) return "/products/safawi_dates.webp?v=3";
+  if (n.includes("tunisian")) return "/products/tunisian_dates.webp?v=3";
+  if (n.includes("date")) return "/products/medjol_dates.webp?v=3";
 
   // Figs / Anjeer
-  if (n.includes("anjeer") || n.includes("fig")) return "/products/anjeer.webp";
+  if (n.includes("anjeer") || n.includes("fig")) return "/products/anjeer.webp?v=3";
 
   // Nuts
-  if (n.includes("almond") || n.includes("badam")) return "/products/almonds.webp";
-  if (n.includes("walnut") || n.includes("akhrot")) return "/products/walnut.webp";
-  if (n.includes("cashew") || n.includes("kaju")) return "/products/cashews.webp";
-  if (n.includes("pista") || n.includes("pistachio")) return "/products/pistachios.webp";
+  if (n.includes("almond") || n.includes("badam")) return "/products/almonds.webp?v=3";
+  if (n.includes("walnut") || n.includes("akhrot")) return "/products/walnut.webp?v=3";
+  if (n.includes("cashew") || n.includes("kaju")) return "/products/cashews.webp?v=3";
+  if (n.includes("pista") || n.includes("pistachio")) return "/products/pistachios.webp?v=3";
 
   // Raisins
-  if (n.includes("black raisin") || n.includes("black-raisin")) return "/products/raisins_black.webp";
-  if (n.includes("raisin") || n.includes("kishmish")) return "/products/raisins_yellow.webp";
+  if (n.includes("black raisin") || n.includes("black-raisin")) return "/products/raisins_black.webp?v=3";
+  if (n.includes("raisin") || n.includes("kishmish")) return "/products/raisins_yellow.webp?v=3";
 
   // Fruits & Berries & Makhana
-  if (n.includes("apricot")) return "/products/apricot.webp";
-  if (n.includes("black berry") || n.includes("blackberry") || n.includes("plum")) return "/products/blackberry_plum.webp";
-  if (n.includes("blueberry")) return "/products/blueberry.webp";
-  if (n.includes("kiwi")) return "/products/dry_kiwi_green.webp";
-  if (n.includes("amla")) return "/products/dry_sweet_amla.webp";
-  if (n.includes("makhana")) return "/products/phool_makhana.webp";
+  if (n.includes("apricot")) return "/products/apricot.webp?v=3";
+  if (n.includes("black berry") || n.includes("blackberry") || n.includes("plum")) return "/products/blackberry_plum.webp?v=3";
+  if (n.includes("blueberry")) return "/products/blueberry.webp?v=3";
+  if (n.includes("kiwi")) return "/products/dry_kiwi_green.webp?v=3";
+  if (n.includes("amla")) return "/products/dry_sweet_amla.webp?v=3";
+  if (n.includes("makhana")) return "/products/phool_makhana.webp?v=3";
 
   // Seeds
-  if (n.includes("pumpkin")) return "/products/pumpkin_seeds.webp";
-  if (n.includes("watermelon")) return "/products/watermelon_seeds.webp";
-  if (n.includes("seed")) return "/products/pumpkin_seeds.webp";
+  if (n.includes("pumpkin")) return "/products/pumpkin_seeds.webp?v=3";
+  if (n.includes("watermelon")) return "/products/watermelon_seeds.webp?v=3";
+  if (n.includes("seed")) return "/products/pumpkin_seeds.webp?v=3";
 
   // Saffron
-  if (n.includes("saffron") || n.includes("kesar")) return "/products/saffron.webp";
+  if (n.includes("saffron") || n.includes("kesar")) return "/products/saffron.webp?v=3";
 
   // Category Fallbacks
-  if (categorySlug === "dates") return "/products/medjol_dates.webp";
-  if (categorySlug === "figs-anjeer") return "/products/anjeer.webp";
-  if (categorySlug === "nuts") return "/products/almonds.webp";
-  if (categorySlug === "raisins") return "/products/raisins_yellow.webp";
-  if (categorySlug === "dried-fruits-berries") return "/products/apricot.webp";
-  if (categorySlug === "seeds") return "/products/pumpkin_seeds.webp";
-  if (categorySlug === "saffron-kesar") return "/products/saffron.webp";
+  if (categorySlug === "dates") return "/products/medjol_dates.webp?v=3";
+  if (categorySlug === "figs-anjeer") return "/products/anjeer.webp?v=3";
+  if (categorySlug === "nuts") return "/products/almonds.webp?v=3";
+  if (categorySlug === "raisins") return "/products/raisins_yellow.webp?v=3";
+  if (categorySlug === "dried-fruits-berries") return "/products/apricot.webp?v=3";
+  if (categorySlug === "seeds") return "/products/pumpkin_seeds.webp?v=3";
+  if (categorySlug === "saffron-kesar") return "/products/saffron.webp?v=3";
 
   return null;
 }
