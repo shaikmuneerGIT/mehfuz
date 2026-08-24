@@ -34,6 +34,9 @@ export function resolveProductImagePath(name: string, categorySlug?: string): st
   if (n.includes("kiwi")) return "/products/dry_kiwi_green.webp?v=3";
   if (n.includes("amla")) return "/products/dry_sweet_amla.webp?v=3";
   if (n.includes("makhana")) return "/products/phool_makhana.webp?v=3";
+  if (n.includes("chilli") || n.includes("chili") || n.includes("mirchi")) return "/products/red_chilli_powder.webp?v=3";
+  if (n.includes("honey")) return "/products/orgonic_wild_coorg_honey.webp?v=3";
+  if (n.includes("sunflower")) return "/products/sunflower_seeds.webp?v=3";
 
   // Seeds
   if (n.includes("pumpkin")) return "/products/pumpkin_seeds.webp?v=3";
