@@ -86,6 +86,7 @@ export function Checkout() {
   return (
     <div className="parchment min-h-screen font-roboto">
       <PageBanner
+        image="/images/hero_banner_4.jpg"
         title="Checkout"
         subtitle="Complete your shipping details to place your harvest order."
         breadcrumbs={[{ label: "Cart", href: "/cart" }, { label: "Checkout" }]}

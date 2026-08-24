@@ -63,6 +63,7 @@ export function Blog() {
     <div className="parchment min-h-screen font-roboto">
       {/* 200px Height Full-Width Header Banner */}
       <PageBanner
+        image="/images/hero_banner_3.jpg"
         title="Harvest Journal & Articles"
         subtitle="Insights into direct origin sourcing, purity testing, healthy living & luxury gift hampers."
         breadcrumbs={[{ label: "Blog" }]}

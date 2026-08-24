@@ -12,6 +12,7 @@ export function Cart() {
     return (
       <div className="parchment min-h-screen font-roboto">
         <PageBanner
+        image="/images/hero_banner_2.jpg"
           title="Your Shopping Cart"
           subtitle="Your cart is currently empty. Explore our premium selection of dry fruits, saffron, and nuts."
           breadcrumbs={[{ label: "Cart" }]}
@@ -32,6 +33,7 @@ export function Cart() {
   return (
     <div className="parchment min-h-screen font-roboto">
       <PageBanner
+        image="/images/hero_banner_2.jpg"
         title="Your Shopping Cart"
         subtitle="Review your handpicked items and proceed to secure checkout."
         breadcrumbs={[{ label: "Cart" }]}

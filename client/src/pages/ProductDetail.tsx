@@ -88,6 +88,7 @@ export function ProductDetail() {
   return (
     <div className="parchment min-h-screen font-roboto">
       <PageBanner
+        image="/images/realistic_dry_fruits_banner_1.jpg"
         title={product.name}
         subtitle={product.origin ? `Direct Origin: ${product.origin}` : `Premium ${product.category.name}`}
         breadcrumbs={[

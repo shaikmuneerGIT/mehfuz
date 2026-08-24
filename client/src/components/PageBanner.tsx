@@ -10,15 +10,21 @@ interface PageBannerProps {
   title: string;
   subtitle?: string;
   breadcrumbs?: BreadcrumbItem[];
+  image?: string;
 }
 
-export function PageBanner({ title, subtitle, breadcrumbs }: PageBannerProps) {
+export function PageBanner({
+  title,
+  subtitle,
+  breadcrumbs,
+  image = "/images/realistic_dry_fruits_banner_2.jpg",
+}: PageBannerProps) {
   return (
     <div className="relative h-[200px] w-full overflow-hidden border-b border-gold-500/40 bg-gradient-to-r from-cream-100 via-gold-100/90 to-cream-100 px-4 sm:px-6 flex flex-col justify-center shadow-sm select-none">
       {/* Realistic Dry Fruits Flatlay Photography Background Overlay */}
       <div className="pointer-events-none absolute inset-0 mix-blend-multiply">
         <img
-          src="/images/realistic_dry_fruits_banner_2.jpg"
+          src={image}
           alt="Assortment of Premium Dry Fruits"
           className="h-full w-full object-cover object-center"
         />
