@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
-import type { Order } from "../types";
+import type { Order, Product } from "../types";
 import { formatInr } from "../lib/format";
 import { FiMessageCircle, FiX, FiSend } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
@@ -142,6 +143,118 @@ export function ChatBot() {
     bodyRef.current?.scrollTo({ top: bodyRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open, showTracker, thinking]);
 
+  // Catalog cache for local (no-AI) answers.
+  const productsRef = useRef<Product[] | null>(null);
+  async function getProducts(): Promise<Product[]> {
+    if (productsRef.current) return productsRef.current;
+    try {
+      const res = await api.get<Product[]>("/catalog/products");
+      productsRef.current = res.data;
+    } catch {
+      productsRef.current = [];
+    }
+    return productsRef.current;
+  }
+
+  function whatsAppOffer(text: string): ReactNode {
+    return (
+      <a
+        href={`${WHATSAPP}?text=${encodeURIComponent(`Hello Mehfuz! ${text}`)}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1 text-[11px] font-bold text-white hover:bg-[#1fb857]"
+      >
+        <FaWhatsapp className="h-3 w-3" />
+        Send this on WhatsApp
+      </a>
+    );
+  }
+
+  async function answerLocally(
+    text: string
+  ): Promise<{ node: ReactNode; openTracker?: boolean }> {
+    const t = text.toLowerCase();
+    const has = (...words: string[]) => words.some((w) => t.includes(w));
+
+    // Product / price questions — match against the live catalog.
+    if (!has("deliver", "shipping", "charge") || has("price", "cost", "rate", "kitna", "how much")) {
+      const products = await getProducts();
+      const matches = products.filter((p) => {
+        const name = p.name.toLowerCase();
+        if (t.includes(name)) return true;
+        return name
+          .split(/\s+/)
+          .some((w) => w.length > 3 && t.includes(w));
+      });
+      if (matches.length > 0) {
+        const shown = matches.slice(0, 3);
+        return {
+          node: (
+            <>
+              {shown.map((p) => (
+                <div key={p.id} className="mb-1.5 last:mb-0">
+                  <Link
+                    to={`/product/${p.slug}`}
+                    className="font-semibold text-gold-700 underline"
+                  >
+                    {p.name}
+                  </Link>
+                  :{" "}
+                  {p.variants
+                    .map(
+                      (v) =>
+                        `${v.label} — ${formatInr(v.priceInr)}${v.stock === 0 ? " (out of stock)" : ""}`
+                    )
+                    .join(", ")}
+                </div>
+              ))}
+              <div className="mt-1 text-brown-500">Tap a product to see details and order.</div>
+            </>
+          ),
+        };
+      }
+    }
+
+    if (has("deliver", "shipping", "charge", "kab", "how long", "time")) {
+      return { node: FAQS[0].a };
+    }
+    if (has("pay", "upi", "qr", "cod", "cash")) {
+      return { node: FAQS[1].a };
+    }
+    if (has("original", "genuine", "quality", "fssai", "pure")) {
+      return { node: FAQS[2].a };
+    }
+    if (has("bulk", "wholesale", "gift", "hamper", "corporate")) {
+      return { node: FAQS[3].a };
+    }
+    if (has("order", "track", "status", "where is")) {
+      return {
+        node: <>Sure — enter your order number below (it looks like MFZ26081234):</>,
+        openTracker: true,
+      };
+    }
+    if (has("hi", "hello", "salam", "hey", "namaste")) {
+      return {
+        node: (
+          <>
+            Hello! 🌰 Ask me about any product's price, delivery, payment, or your order —
+            or tap a question below.
+          </>
+        ),
+      };
+    }
+
+    return {
+      node: (
+        <>
+          I'm not sure about that one — our team on WhatsApp can help right away:
+          <br />
+          {whatsAppOffer(text)}
+        </>
+      ),
+    };
+  }
+
   async function sendFreeform(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
@@ -150,26 +263,12 @@ export function ChatBot() {
     setShowTracker(false);
     setMessages((prev) => [...prev, { from: "user", content: text }]);
 
-    // Without the AI configured, typed messages continue on WhatsApp with
-    // the text pre-filled — the box always works.
+    // Without the AI configured, answer locally: product prices from the live
+    // catalog, FAQ keyword matches, and a WhatsApp *offer* (never auto-open).
     if (!aiEnabled) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          from: "bot",
-          content: (
-            <>
-              Let me connect you to our team on WhatsApp — your message is ready to send
-              there. 👋
-            </>
-          ),
-        },
-      ]);
-      window.open(
-        `${WHATSAPP}?text=${encodeURIComponent(`Hello Mehfuz! ${text}`)}`,
-        "_blank",
-        "noopener,noreferrer"
-      );
+      const answer = await answerLocally(text);
+      setMessages((prev) => [...prev, { from: "bot", content: answer.node }]);
+      if (answer.openTracker) setShowTracker(true);
       return;
     }
     historyRef.current = [...historyRef.current, { role: "user" as const, content: text }].slice(-10);
