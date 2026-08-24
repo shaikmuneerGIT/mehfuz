@@ -1,15 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Product } from "../types";
 import { formatInr } from "../lib/format";
 import { ProductImage } from "./ProductImage";
-import { FiChevronDown } from "react-icons/fi";
+import { FiChevronDown, FiCheck } from "react-icons/fi";
 
 export function ProductCard({ product }: { product: Product }) {
   // Variants arrive sorted by price ascending, so the first one is the
   // smallest pack (250g for most products) — the default selection.
   const [variantId, setVariantId] = useState(product.variants[0]?.id ?? "");
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLSpanElement>(null);
   const selected = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
+
+  // Close the pack-size dropdown when clicking anywhere outside it.
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("click", onDocClick);
+    return () => document.removeEventListener("click", onDocClick);
+  }, [open]);
 
   return (
     <Link
@@ -36,30 +50,71 @@ export function ProductCard({ product }: { product: Product }) {
         <h3 className="font-serif text-lg sm:text-xl font-bold leading-snug text-brown-950 group-hover:text-gold-700 transition-colors">
           {product.name}
         </h3>
-        {product.variants.length > 1 && (
+        {product.variants.length > 1 && selected && (
           <span
+            ref={dropdownRef}
             className="relative mt-1 inline-block w-36"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
             }}
           >
-            <select
-              value={variantId}
-              onChange={(e) => {
-                e.stopPropagation();
-                setVariantId(e.target.value);
-              }}
-              className="w-full cursor-pointer appearance-none rounded-full border border-gold-500/50 bg-cream-50/90 py-1.5 pl-4 pr-8 text-center text-xs font-semibold tracking-wide text-brown-900 shadow-sm transition hover:border-gold-500 focus:border-gold-500 focus:outline-none font-roboto"
+            <button
+              type="button"
+              onClick={() => setOpen((v) => !v)}
+              aria-haspopup="listbox"
+              aria-expanded={open}
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-gold-500/50 bg-cream-50/90 py-1.5 pl-4 pr-3 text-xs font-semibold tracking-wide text-brown-900 shadow-sm transition hover:border-gold-500 focus:border-gold-500 focus:outline-none font-roboto"
+            >
+              <span>{selected.label}</span>
+              <FiChevronDown
+                className={`h-3.5 w-3.5 text-gold-700 transition-transform duration-200 ${
+                  open ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {/* Options panel — fades and slides open */}
+            <ul
+              role="listbox"
+              className={`absolute left-0 right-0 top-full z-20 mt-1.5 origin-top overflow-hidden rounded-xl border border-gold-500/40 bg-cream-50 shadow-lg transition-all duration-200 ease-out ${
+                open
+                  ? "pointer-events-auto translate-y-0 scale-100 opacity-100"
+                  : "pointer-events-none -translate-y-1 scale-95 opacity-0"
+              }`}
             >
               {product.variants.map((v) => (
-                <option key={v.id} value={v.id} disabled={v.stock === 0}>
-                  {v.label}
-                  {v.stock === 0 ? " — out of stock" : ""}
-                </option>
+                <li key={v.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={v.id === variantId}
+                    disabled={v.stock === 0}
+                    onClick={() => {
+                      setVariantId(v.id);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center justify-between px-4 py-2 text-xs font-medium transition font-roboto ${
+                      v.stock === 0
+                        ? "cursor-not-allowed text-brown-400"
+                        : v.id === variantId
+                          ? "bg-gold-500/15 font-semibold text-brown-950"
+                          : "text-brown-800 hover:bg-cream-100"
+                    }`}
+                  >
+                    <span>
+                      {v.label}
+                      {v.stock === 0 ? " — out of stock" : ""}
+                    </span>
+                    {v.id === variantId ? (
+                      <FiCheck className="h-3.5 w-3.5 text-gold-700" />
+                    ) : (
+                      <span className="text-brown-500">{formatInr(v.priceInr)}</span>
+                    )}
+                  </button>
+                </li>
               ))}
-            </select>
-            <FiChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gold-700" />
+            </ul>
           </span>
         )}
         {selected && (
