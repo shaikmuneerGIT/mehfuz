@@ -103,8 +103,30 @@ export function SiteFooter() {
         <p>
           © {new Date().getFullYear()} Mehfuz Premium Dry Fruits &amp; Commodities. All rights reserved.
         </p>
-        <p className="mt-1 tracking-wide">
-          FSSAI Registration No: <span className="font-semibold text-cream-100/70">23626443000038</span>
+        <p className="mt-2 flex items-center justify-center gap-2 tracking-wide">
+          {/* fssai wordmark */}
+          <span className="inline-flex items-center rounded bg-cream-50 px-1.5 py-0.5">
+            <svg viewBox="0 0 74 30" className="h-4 w-auto" aria-label="FSSAI" role="img">
+              <text
+                x="1"
+                y="21"
+                fontFamily="Verdana, Arial, sans-serif"
+                fontSize="19"
+                fontWeight="bold"
+                letterSpacing="0.5"
+              >
+                <tspan fill="#2d3192">fssa</tspan>
+                <tspan fill="#f58220">i</tspan>
+              </text>
+              {/* leaf dot over the i */}
+              <ellipse cx="63" cy="5.4" rx="4.4" ry="2.5" fill="#8dc63f" transform="rotate(-38 63 5.4)" />
+              {/* underline swoosh */}
+              <path d="M2 25.5 Q37 29.5 72 25.5 L72 27.5 Q37 31.5 2 27.5 Z" fill="#f58220" />
+            </svg>
+          </span>
+          <span>
+            Registration No: <span className="font-semibold text-cream-100/70">23626443000038</span>
+          </span>
         </p>
       </div>
     </footer>
