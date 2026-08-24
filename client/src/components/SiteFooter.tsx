@@ -124,6 +124,9 @@ export function SiteFooter() {
               <path d="M2 25.5 Q37 29.5 72 25.5 L72 27.5 Q37 31.5 2 27.5 Z" fill="#f58220" />
             </svg>
           </span>
+          <span>
+            Registration No: <span className="font-semibold text-cream-100/70">23626443000038</span>
+          </span>
         </p>
       </div>
     </footer>
