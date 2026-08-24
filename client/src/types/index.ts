@@ -95,6 +95,7 @@ export interface CartLine {
   productName: string;
   productSlug: string;
   categoryName: string;
+  imageUrl?: string | null;
   variantId: string;
   variantLabel: string;
   priceInr: number;

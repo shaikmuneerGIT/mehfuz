@@ -63,6 +63,7 @@ export function ProductDetail() {
       productId: product.id,
       productName: product.name,
       productSlug: product.slug,
+      imageUrl: product.imageUrl,
       categoryName: product.category.name,
     });
     setAdded(true);
@@ -80,6 +81,7 @@ export function ProductDetail() {
       productId: product.id,
       productName: product.name,
       productSlug: product.slug,
+      imageUrl: product.imageUrl,
       categoryName: product.category.name,
     });
     navigate("/checkout");
