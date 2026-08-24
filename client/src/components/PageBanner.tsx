@@ -24,6 +24,9 @@ export function PageBanner({ title, subtitle, breadcrumbs }: PageBannerProps) {
         />
       </div>
 
+      {/* Cream scrim so the dark serif title stays legible over the photo */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-cream-50/80 via-cream-50/65 to-cream-50/80" />
+
       <div className="relative z-10 mx-auto w-full max-w-7xl text-center font-roboto">
         {breadcrumbs && breadcrumbs.length > 0 && (
           <nav className="mb-2 flex items-center justify-center gap-1 text-xs text-brown-700">
