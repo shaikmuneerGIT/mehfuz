@@ -213,7 +213,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
                         </button>
                       </div>
                       <div className="flex items-center gap-2.5">
-                        <span className="font-serif text-sm font-bold text-brown-950">
+                        <span className="font-roboto text-sm font-bold text-brown-950">
                           {formatInr(l.priceInr * l.quantity)}
                         </span>
                         <button
@@ -257,7 +257,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
               <span className="font-serif text-sm font-bold uppercase tracking-wider text-brown-950">
                 Total
               </span>
-              <span className="font-serif text-xl font-bold text-brown-950">
+              <span className="font-roboto text-xl font-bold text-brown-950">
                 {formatInr(totalInr)}
               </span>
             </div>

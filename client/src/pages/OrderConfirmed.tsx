@@ -179,7 +179,7 @@ export function OrderConfirmed() {
                   <span className="font-roboto">
                     {item.nameSnapshot} ({item.labelSnapshot}) × {item.quantity}
                   </span>
-                  <span className="font-serif font-semibold text-brown-950">
+                  <span className="font-roboto font-semibold text-brown-950">
                     {formatInr(item.priceInr * item.quantity)}
                   </span>
                 </div>
@@ -190,7 +190,7 @@ export function OrderConfirmed() {
               </div>
               <div className="flex justify-between border-t border-gold-500/30 pt-2 font-bold text-brown-950 font-roboto text-base">
                 <span className="font-roboto">Total</span>
-                <span className="font-serif font-bold text-brown-950">{formatInr(order.totalInr)}</span>
+                <span className="font-roboto font-bold text-brown-950">{formatInr(order.totalInr)}</span>
               </div>
             </div>
 

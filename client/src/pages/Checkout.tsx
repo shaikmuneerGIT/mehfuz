@@ -234,7 +234,7 @@ export function Checkout() {
                       {l.variantLabel} × {l.quantity}
                     </div>
                   </div>
-                  <span className="font-serif font-bold text-brown-950">
+                  <span className="font-roboto font-bold text-brown-950">
                     {formatInr(l.priceInr * l.quantity)}
                   </span>
                 </div>
@@ -249,7 +249,7 @@ export function Checkout() {
                 <span>Shipping</span>
                 <span>{shippingInr === 0 ? "Free" : formatInr(shippingInr)}</span>
               </div>
-              <div className="mt-2 flex justify-between font-serif text-base font-bold text-brown-950">
+              <div className="mt-2 flex justify-between font-roboto text-base font-bold text-brown-950">
                 <span>Total</span>
                 <span>{formatInr(totalInr)}</span>
               </div>
