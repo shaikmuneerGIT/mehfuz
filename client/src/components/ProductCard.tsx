@@ -25,13 +25,20 @@ export function ProductCard({ product }: { product: Product }) {
     return () => document.removeEventListener("click", onDocClick);
   }, [open]);
 
+  const soldOut = product.variants.every((v) => v.stock === 0);
+
   return (
     <Link
       to={`/product/${product.slug}`}
-      className="group flex flex-col items-center text-center font-roboto transition-transform duration-300 hover:-translate-y-1 py-3"
+      // The card lifts above its siblings while the pack dropdown is open —
+      // the hover transform creates a stacking context, so without this the
+      // open panel is painted under the next card in the grid.
+      className={`group relative flex flex-col items-center text-center font-roboto transition-transform duration-300 hover:-translate-y-1 py-3 ${
+        open ? "z-30" : ""
+      }`}
     >
       {/* Product Image (Larger, Seamless without Card Box) */}
-      <div className="relative w-full aspect-square flex items-center justify-center p-2">
+      <div className={`relative w-full aspect-square flex items-center justify-center p-2 ${soldOut ? "opacity-55 grayscale-[35%]" : ""}`}>
         <ProductImage
           name={product.name}
           categorySlug={product.category.slug}
@@ -40,6 +47,11 @@ export function ProductCard({ product }: { product: Product }) {
           corners={false}
           className="bg-transparent border-none shadow-none p-0"
         />
+        {soldOut && (
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brown-950/85 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-cream-100 shadow-md">
+            Out of Stock
+          </span>
+        )}
       </div>
 
       {/* Product Details (Larger, Clean Typography) */}
