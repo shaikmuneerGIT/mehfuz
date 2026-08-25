@@ -5,6 +5,7 @@ import { Logo } from "../../components/Logo";
 const LINKS = [
   { to: "/admin", label: "Dashboard", end: true },
   { to: "/admin/products", label: "Products" },
+  { to: "/admin/categories", label: "Categories" },
   { to: "/admin/orders", label: "Orders" },
   { to: "/admin/stock", label: "Stock" },
   { to: "/admin/expenses", label: "Expenses" },

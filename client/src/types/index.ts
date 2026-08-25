@@ -4,6 +4,9 @@ export interface Category {
   slug: string;
   description?: string | null;
   origin?: string | null;
+  imageUrl?: string | null;
+  showOnHome?: boolean;
+  sortOrder?: number;
   _count?: { products: number };
 }
 

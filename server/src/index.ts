@@ -176,6 +176,9 @@ async function ensureNewTables() {
   const columnAdds = [
     `ALTER TABLE "Order" ADD COLUMN "paymentStatus" TEXT`,
     `ALTER TABLE "Order" ADD COLUMN "paymentRef" TEXT`,
+    `ALTER TABLE "Category" ADD COLUMN "imageUrl" TEXT`,
+    `ALTER TABLE "Category" ADD COLUMN "showOnHome" BOOLEAN NOT NULL DEFAULT true`,
+    `ALTER TABLE "Category" ADD COLUMN "sortOrder" INTEGER NOT NULL DEFAULT 0`,
   ];
   for (const sql of columnAdds) {
     try {

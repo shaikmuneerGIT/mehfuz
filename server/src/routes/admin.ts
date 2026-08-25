@@ -22,6 +22,18 @@ const categorySchema = z.object({
   name: z.string().min(2),
   description: z.string().optional(),
   origin: z.string().optional(),
+  // Home-page presentation, editable from the admin Categories page.
+  imageUrl: z.string().optional(),
+  showOnHome: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).max(999).optional(),
+});
+
+adminRouter.get("/categories", async (_req, res) => {
+  const categories = await prisma.category.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    include: { _count: { select: { products: true } } },
+  });
+  res.json(categories);
 });
 
 adminRouter.post("/categories", async (req, res) => {

@@ -31,7 +31,7 @@ export function FeaturedSelectionSection() {
           to="/shop"
           className="metallic-gold-btn inline-flex items-center gap-2 rounded-full px-8 py-3.5 text-sm font-bold tracking-wide transition-all transform hover:scale-105 shadow-md font-roboto"
         >
-          <span>View Full Catalog</span>
+          <span>View Full Catalogue</span>
           <FiArrowRight className="h-4 w-4" />
         </Link>
       </div>

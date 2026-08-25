@@ -5,7 +5,7 @@ export const catalogRouter = Router();
 
 catalogRouter.get("/categories", async (_req, res) => {
   const categories = await prisma.category.findMany({
-    orderBy: { name: "asc" },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     include: { _count: { select: { products: true } } },
   });
   res.json(categories);

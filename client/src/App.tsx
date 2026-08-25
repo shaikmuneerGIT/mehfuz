@@ -20,6 +20,7 @@ import { AdminProductForm } from "./pages/admin/AdminProductForm";
 import { AdminOrders } from "./pages/admin/AdminOrders";
 import { AdminStock } from "./pages/admin/AdminStock";
 import { AdminExpenses } from "./pages/admin/AdminExpenses";
+import { AdminCategories } from "./pages/admin/AdminCategories";
 import { AdminBanners } from "./pages/admin/AdminBanners";
 
 function StorefrontLayout({ children }: { children: ReactNode }) {
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="orders" element={<AdminOrders />} />
         <Route path="stock" element={<AdminStock />} />
         <Route path="expenses" element={<AdminExpenses />} />
+        <Route path="categories" element={<AdminCategories />} />
         <Route path="banners" element={<AdminBanners />} />
       </Route>
     </Routes>
