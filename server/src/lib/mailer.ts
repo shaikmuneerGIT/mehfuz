@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Order, OrderItem } from "@prisma/client";
 import { formatInr } from "./formatInr";
+import { customerEmailHtml, ownerEmailHtml } from "./emailTemplate";
 
 // Email is optional infrastructure: with SMTP env vars unset the app runs
 // exactly as before and order notifications are silently skipped.
@@ -81,6 +82,7 @@ export function sendOrderNotifications(order: OrderWithItems): void {
               ? `We will pack your order as soon as your UPI payment is confirmed.\n\n`
               : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
           `Questions? Call or WhatsApp +91 98489 18992.\n\nMehfuz — Premium Dry Fruits & Commodities\nhttps://mehfuzdryfruits.in`,
+        html: customerEmailHtml(order),
       })
       .catch((err) => console.error("Customer email failed:", err.message));
   }
@@ -92,6 +94,7 @@ export function sendOrderNotifications(order: OrderWithItems): void {
         to: NOTIFY_EMAIL,
         subject: `New order ${order.orderNumber} — ${formatInr(order.totalInr)} (${order.paymentMethod})`,
         text: `A new order just came in on mehfuzdryfruits.in:\n\n${body}\n\nOpen the admin panel: https://mehfuzdryfruits.in/admin`,
+        html: ownerEmailHtml(order),
       })
       .catch((err) => console.error("Owner alert email failed:", err.message));
   }
