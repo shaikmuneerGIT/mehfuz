@@ -324,8 +324,12 @@ export function ChatBot() {
             : "pointer-events-none translate-y-4 opacity-0"
         }`}
       >
-        <div className="flex items-center gap-2.5 bg-brown-950 px-4 py-3">
-          <FiMessageCircle className="h-5 w-5 text-gold-400" />
+        <div className="flex items-center gap-3 bg-brown-950 px-4 py-2.5">
+          <img
+            src="/images/logo.webp?v=3"
+            alt="MEHFUZ"
+            className="h-11 w-auto object-contain"
+          />
           <div>
             <div className="font-serif text-sm font-bold text-gold-300">Mehfuz Assistant</div>
             <div className="text-[10px] text-cream-100/70">Usually replies instantly</div>
