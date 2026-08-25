@@ -44,3 +44,4 @@ deploy-delta/
 *.tar.gz
 *.zip
 publish-smoketest*.log
+cpcookies.txt
