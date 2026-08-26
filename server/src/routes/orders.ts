@@ -85,10 +85,17 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
     };
   });
 
-  // Delivery fee depends on how far the customer's pincode is from the
-  // warehouse — same rules the checkout page shows before they pay.
+  // Delivery is Hyderabad-only: the same quote shown at checkout decides
+  // serviceability and the km-based fee here, so nobody can order past it.
   const shippingConfig = await loadShippingConfig();
-  const shippingInr = quoteShipping(shippingConfig, subtotalInr, data.pincode).feeInr;
+  const shippingQuote = quoteShipping(shippingConfig, subtotalInr, data.pincode);
+  if (!shippingQuote.serviceable) {
+    return res.status(400).json({
+      error:
+        "Sorry, we currently deliver only within Hyderabad. Message us on WhatsApp (+91 98489 18992) and we'll try to arrange delivery for you.",
+    });
+  }
+  const shippingInr = shippingQuote.feeInr;
   const totalInr = subtotalInr + shippingInr;
 
   const order = await prisma.$transaction(async (tx) => {

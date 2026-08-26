@@ -73,13 +73,10 @@ app.get("/api/config/shop", async (req, res) => {
   res.json({
     shippingEnabled: config.enabled,
     freeAbove: config.freeAbove,
-    fees: {
-      local: config.localFee,
-      city: config.cityFee,
-      region: config.regionFee,
-      national: config.nationalFee,
-    },
-    quote: { feeInr: quote.feeInr, zone: quote.zone },
+    baseFee: config.baseFee,
+    baseKm: config.baseKm,
+    perKmFee: config.perKmFee,
+    quote,
   });
 });
 

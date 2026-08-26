@@ -6,18 +6,18 @@ interface ShippingConfig {
   enabled: boolean;
   warehousePincode: string;
   freeAbove: number;
-  localFee: number;
-  cityFee: number;
-  regionFee: number;
-  nationalFee: number;
+  baseFee: number;
+  baseKm: number;
+  perKmFee: number;
+  cityRadiusKm: number;
 }
 
-const ZONES: { key: keyof ShippingConfig; label: string; hint: string }[] = [
-  { key: "localFee", label: "Nearby (same locality)", hint: "first 4 digits of pincode match the warehouse" },
-  { key: "cityFee", label: "Within the city", hint: "first 3 digits match — greater Hyderabad" },
-  { key: "regionFee", label: "Within the region", hint: "first 2 digits match — Telangana belt" },
-  { key: "nationalFee", label: "Rest of India", hint: "everywhere else" },
-];
+interface Quote {
+  serviceable: boolean;
+  feeInr: number;
+  distanceKm: number | null;
+  zone: string;
+}
 
 export function AdminShipping() {
   const [config, setConfig] = useState<ShippingConfig | null>(null);
@@ -25,10 +25,23 @@ export function AdminShipping() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testPin, setTestPin] = useState("");
+  const [testQuote, setTestQuote] = useState<Quote | null>(null);
 
   useEffect(() => {
     api.get<ShippingConfig>("/admin/shipping").then((res) => setConfig(res.data));
   }, []);
+
+  // Live-quote the test pincode against the server (same math as checkout).
+  useEffect(() => {
+    if (testPin.length !== 6) {
+      setTestQuote(null);
+      return;
+    }
+    api
+      .get<{ quote: Quote }>("/config/shop", { params: { subtotal: 500, pincode: testPin } })
+      .then((res) => setTestQuote(res.data.quote))
+      .catch(() => setTestQuote(null));
+  }, [testPin]);
 
   if (!config) return <p className="text-brown-500">Loading...</p>;
 
@@ -54,25 +67,14 @@ export function AdminShipping() {
     }
   }
 
-  // Mirror of the server's prefix rule, for the live preview below.
-  function preview(pin: string): { label: string; fee: number } | null {
-    if (!config || !/^\d{6}$/.test(pin)) return null;
-    let n = 0;
-    while (n < 6 && pin[n] === config.warehousePincode[n]) n++;
-    if (n >= 4) return { label: "Nearby", fee: config.localFee };
-    if (n === 3) return { label: "Within the city", fee: config.cityFee };
-    if (n === 2) return { label: "Within the region", fee: config.regionFee };
-    return { label: "Rest of India", fee: config.nationalFee };
-  }
-  const testQuote = preview(testPin);
-
   return (
     <div className="max-w-2xl">
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-brown-950">Shipping</h1>
         <p className="mt-1 text-sm text-brown-500">
-          Delivery fees are worked out from how close the customer's pincode is to your
-          warehouse — nearer pincodes pay less, like Blinkit or BigBasket.
+          Delivery is <b>within Hyderabad only</b>. The fee works like food-delivery apps: a
+          base charge covers the first few kilometres from your warehouse, then a per-km rate.
+          Pincodes beyond the delivery radius cannot place an order.
         </p>
       </div>
 
@@ -85,7 +87,9 @@ export function AdminShipping() {
           />
           Charge for delivery
           {!config.enabled && (
-            <span className="font-normal text-brown-500">(currently FREE for everyone)</span>
+            <span className="font-normal text-brown-500">
+              (currently FREE for every Hyderabad order)
+            </span>
           )}
         </label>
 
@@ -101,7 +105,7 @@ export function AdminShipping() {
               placeholder="500061"
             />
             <span className="mt-1 block text-xs text-brown-500">
-              Where orders ship from. Change this if the warehouse moves.
+              Distances are measured from here. Change it if the warehouse moves.
             </span>
           </label>
           <label className="block text-sm">
@@ -115,30 +119,69 @@ export function AdminShipping() {
             />
             <span className="mt-1 block text-xs text-brown-500">0 = never free.</span>
           </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-brown-800">Base fee (₹)</span>
+            <input
+              type="number"
+              min={0}
+              value={config.baseFee}
+              onChange={(e) => set("baseFee", Number(e.target.value || 0))}
+              className="input"
+              disabled={!config.enabled}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-brown-800">Base fee covers (km)</span>
+            <input
+              type="number"
+              min={0}
+              value={config.baseKm}
+              onChange={(e) => set("baseKm", Number(e.target.value || 0))}
+              className="input"
+              disabled={!config.enabled}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-brown-800">Per extra km (₹)</span>
+            <input
+              type="number"
+              min={0}
+              value={config.perKmFee}
+              onChange={(e) => set("perKmFee", Number(e.target.value || 0))}
+              className="input"
+              disabled={!config.enabled}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-brown-800">Delivery radius (km)</span>
+            <input
+              type="number"
+              min={1}
+              value={config.cityRadiusKm}
+              onChange={(e) => set("cityRadiusKm", Number(e.target.value || 1))}
+              className="input"
+            />
+            <span className="mt-1 block text-xs text-brown-500">
+              Pincodes farther than this can't order.
+            </span>
+          </label>
         </div>
 
-        <div>
-          <div className="mb-2 text-sm font-semibold text-brown-800">Delivery fees by distance</div>
-          <div className="space-y-2">
-            {ZONES.map((z) => (
-              <div key={z.key} className="flex items-center gap-3">
-                <div className="w-56">
-                  <div className="text-sm text-brown-900">{z.label}</div>
-                  <div className="text-[11px] text-brown-500">{z.hint}</div>
-                </div>
-                <span className="text-sm text-brown-500">₹</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={config[z.key] as number}
-                  onChange={(e) => set(z.key, Number(e.target.value || 0) as never)}
-                  className="input max-w-[110px]"
-                  disabled={!config.enabled}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
+        <p className="rounded-lg bg-cream-50 p-3 text-xs text-brown-600">
+          Example with current settings: 10 km away ={" "}
+          <b>
+            {formatInr(
+              config.baseFee + Math.max(0, Math.ceil(10 - config.baseKm)) * config.perKmFee
+            )}
+          </b>
+          {" • "}20 km ={" "}
+          <b>
+            {formatInr(
+              config.baseFee + Math.max(0, Math.ceil(20 - config.baseKm)) * config.perKmFee
+            )}
+          </b>
+          {config.freeAbove > 0 && <> • orders of {formatInr(config.freeAbove)}+ ship free</>}
+        </p>
 
         <div className="rounded-lg border border-gold-500/30 bg-cream-50 p-4">
           <div className="mb-1 text-sm font-semibold text-brown-800">Try a pincode</div>
@@ -151,21 +194,23 @@ export function AdminShipping() {
               className="input max-w-[140px]"
               placeholder="e.g. 500030"
             />
-            {testQuote && config.enabled && (
-              <span className="text-sm text-brown-900">
-                {testQuote.label} — <b>{formatInr(testQuote.fee)}</b>
-                {config.freeAbove > 0 && (
-                  <span className="text-brown-500">
-                    {" "}
-                    (free at {formatInr(config.freeAbove)}+)
-                  </span>
-                )}
-              </span>
-            )}
-            {testPin.length === 6 && !config.enabled && (
-              <span className="text-sm text-brown-900">FREE — charging is off</span>
-            )}
+            {testQuote &&
+              (testQuote.serviceable ? (
+                <span className="text-sm text-brown-900">
+                  {testQuote.distanceKm !== null && <>≈ {testQuote.distanceKm} km — </>}
+                  <b>{testQuote.feeInr === 0 ? "FREE" : formatInr(testQuote.feeInr)}</b>
+                  <span className="text-brown-500"> (on a ₹500 cart)</span>
+                </span>
+              ) : (
+                <span className="text-sm font-semibold text-maroon-700">
+                  Outside the delivery area — order would be blocked
+                </span>
+              ))}
           </div>
+          <p className="mt-2 text-[11px] text-brown-500">
+            Saved settings apply within a minute; the tester always uses the saved settings, so
+            save first, then test.
+          </p>
         </div>
 
         {error && <p className="text-sm text-maroon-700">{error}</p>}

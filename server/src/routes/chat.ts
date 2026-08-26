@@ -81,11 +81,13 @@ chatRouter.post("/", chatLimiter, async (req, res) => {
     const catalog = await catalogSnapshot();
     const { loadShippingConfig } = await import("../lib/shipping");
     const sc = await loadShippingConfig();
-    const deliveryFact = !sc.enabled
-      ? "Delivery: FREE on all orders right now."
-      : `Delivery fee depends on the customer's pincode (distance from our Hyderabad warehouse): ₹${sc.localFee} nearby, ₹${sc.cityFee} within the city, ₹${sc.regionFee} within the region, ₹${sc.nationalFee} rest of India${
-          sc.freeAbove > 0 ? `; FREE on orders of ₹${sc.freeAbove} or more` : ""
-        }. The exact fee shows at checkout after entering the pincode.`;
+    const deliveryFact = `We deliver ONLY within Hyderabad right now (customers outside Hyderabad should WhatsApp us to arrange something). ${
+      !sc.enabled
+        ? "Delivery is FREE on all Hyderabad orders at the moment."
+        : `The delivery fee is distance-based like food apps: ₹${sc.baseFee} covers the first ${sc.baseKm} km from our warehouse, then ₹${sc.perKmFee} per extra km${
+            sc.freeAbove > 0 ? `; FREE on orders of ₹${sc.freeAbove} or more` : ""
+          }. The exact fee shows at checkout after entering the pincode.`
+    }`;
     const response = await client.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 1024,

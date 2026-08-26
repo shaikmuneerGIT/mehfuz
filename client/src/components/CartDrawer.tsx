@@ -11,7 +11,6 @@ import { FiX, FiTrash2, FiShoppingBag, FiMinus, FiPlus, FiArrowRight } from "rea
 interface ShopQuote {
   shippingEnabled: boolean;
   freeAbove: number;
-  quote: { feeInr: number; zone: string };
 }
 
 /** Catalog tiles shown inside the drawer so shoppers can add more without leaving. */
@@ -264,8 +263,8 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             </div>
             {!freeDelivery && shop && shop.freeAbove > 0 && (
               <p className="mt-1 text-[11px] text-brown-500">
-                Free delivery on orders over {formatInr(shop.freeAbove)} — exact fee shows at
-                checkout from your pincode.
+                Hyderabad delivery only. Free over {formatInr(shop.freeAbove)} — exact fee shows
+                at checkout from your pincode.
               </p>
             )}
             <div className="mt-3 flex items-center justify-between border-t border-gold-500/30 pt-3">

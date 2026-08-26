@@ -213,8 +213,10 @@ export function ShippingPage() {
     >
       <h2>Delivery charges</h2>
       <p>
-        Delivery is <b>currently free on all orders</b>. If this changes, the exact delivery
-        charge will always be shown in your cart and at checkout before you pay.
+        The delivery fee depends on the distance between our warehouse and your pincode — a
+        base charge for the first few kilometres, then a small per-km rate, shown exactly at
+        checkout before you pay. Orders above the free-delivery threshold shown at checkout
+        ship free.
       </p>
 
       <h2>Dispatch time</h2>
@@ -229,8 +231,8 @@ export function ShippingPage() {
 
       <h2>Delivery time</h2>
       <p>
-        Most deliveries within Telangana arrive in 2–4 working days, and elsewhere in India in
-        4–8 working days, depending on your location. Remote pin codes can take longer.
+        Deliveries within Hyderabad usually arrive in 1–3 working days after dispatch,
+        depending on your location.
       </p>
 
       <h2>Tracking your order</h2>
@@ -265,8 +267,10 @@ export function ShippingPage() {
 
       <h2>Serviceable areas</h2>
       <p>
-        We deliver across India. We do not currently ship outside India. For bulk, corporate or
-        wholesale orders, contact us at {CONTACT}.
+        We currently deliver <b>within Hyderabad only</b>. If your pincode is outside our
+        delivery area, checkout will let you know — message us on WhatsApp and we'll try to
+        arrange something for you. For bulk, corporate or wholesale orders, contact us at{" "}
+        {CONTACT}.
       </p>
     </PolicyLayout>
   );

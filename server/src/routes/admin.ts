@@ -397,10 +397,10 @@ const shippingConfigSchema = z.object({
   enabled: z.boolean(),
   warehousePincode: z.string().regex(/^\d{6}$/, "6-digit pincode"),
   freeAbove: z.number().int().min(0).max(100000),
-  localFee: z.number().int().min(0).max(5000),
-  cityFee: z.number().int().min(0).max(5000),
-  regionFee: z.number().int().min(0).max(5000),
-  nationalFee: z.number().int().min(0).max(5000),
+  baseFee: z.number().int().min(0).max(5000),
+  baseKm: z.number().int().min(0).max(100),
+  perKmFee: z.number().int().min(0).max(1000),
+  cityRadiusKm: z.number().int().min(1).max(500),
 });
 
 adminRouter.get("/shipping", async (_req, res) => {

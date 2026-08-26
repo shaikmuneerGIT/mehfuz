@@ -9,7 +9,7 @@ import { CartThumb, cartLineImage } from "../components/CartThumb";
 interface ShopQuote {
   shippingEnabled: boolean;
   freeAbove: number;
-  quote: { feeInr: number; zone: string };
+  quote: { serviceable: boolean; feeInr: number; distanceKm: number | null; zone: string };
 }
 
 interface UpiConfig {
@@ -73,7 +73,9 @@ export function Checkout() {
   }
 
   const pinComplete = form.pincode.replace(/\D/g, "").length === 6;
-  const shippingInr = shipQuote ? shipQuote.quote.feeInr : 0;
+  const quote = shipQuote?.quote;
+  const outsideArea = pinComplete && quote ? !quote.serviceable : false;
+  const shippingInr = quote?.serviceable ? quote.feeInr : 0;
   const totalInr = subtotalInr + shippingInr;
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -218,6 +220,21 @@ export function Checkout() {
               )}
             </div>
 
+            {outsideArea && (
+              <p className="rounded-lg border border-maroon-700/40 bg-maroon-700/5 p-3 text-sm text-maroon-700">
+                Sorry, we currently deliver <b>only within Hyderabad</b>. Message us on{" "}
+                <a
+                  href="https://wa.me/919848918992"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold underline"
+                >
+                  WhatsApp
+                </a>{" "}
+                and we'll try to arrange delivery for you.
+              </p>
+            )}
+
             {error && (
               <p className="rounded-lg border border-maroon-700/40 bg-maroon-700/5 p-3 text-sm text-maroon-700">
                 {error}
@@ -226,7 +243,7 @@ export function Checkout() {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || outsideArea}
               className="metallic-gold-btn w-full rounded-full py-3.5 text-sm font-bold shadow-md disabled:opacity-60 sm:w-auto sm:px-8"
             >
               {submitting ? "Placing order..." : `Place Order — ${formatInr(totalInr)}`}
@@ -262,11 +279,13 @@ export function Checkout() {
               <div className="flex justify-between text-brown-700">
                 <span>Shipping</span>
                 <span>
-                  {shipQuote?.shippingEnabled && !pinComplete
+                  {!pinComplete
                     ? "enter pincode"
-                    : shippingInr === 0
-                      ? "Free"
-                      : formatInr(shippingInr)}
+                    : outsideArea
+                      ? "—"
+                      : shippingInr === 0
+                        ? "Free"
+                        : `${formatInr(shippingInr)}${quote?.distanceKm != null ? ` (≈${quote.distanceKm} km)` : ""}`}
                 </span>
               </div>
               <div className="mt-2 flex justify-between font-roboto text-base font-bold text-brown-950">
