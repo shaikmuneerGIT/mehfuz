@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
 import { ChatBot } from "./components/ChatBot";
+import { ScrollToTop } from "./components/ScrollToTop";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { Home } from "./pages/Home";
 import { Shop } from "./pages/Shop";
@@ -36,6 +37,8 @@ function StorefrontLayout({ children }: { children: ReactNode }) {
 
 export default function App() {
   return (
+    <>
+    <ScrollToTop />
     <Routes>
       <Route path="/" element={<StorefrontLayout><Home /></StorefrontLayout>} />
       <Route path="/shop" element={<StorefrontLayout><Shop /></StorefrontLayout>} />
@@ -70,5 +73,6 @@ export default function App() {
         <Route path="banners" element={<AdminBanners />} />
       </Route>
     </Routes>
+    </>
   );
 }
