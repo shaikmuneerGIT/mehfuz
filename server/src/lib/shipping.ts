@@ -26,7 +26,7 @@ export interface ShippingConfig {
 export const DEFAULT_SHIPPING: ShippingConfig = {
   enabled: true,
   warehousePincode: "500061",
-  freeAbove: 999,
+  freeAbove: 1499,
   baseFee: 30,
   baseKm: 4,
   perKmFee: 8,
