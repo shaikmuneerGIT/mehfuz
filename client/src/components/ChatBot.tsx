@@ -255,6 +255,68 @@ export function ChatBot() {
     };
   }
 
+  /** Full order card — used whenever a message contains an order number. */
+  async function lookupOrder(orderNumber: string): Promise<ReactNode> {
+    try {
+      const res = await api.get<Order>(`/orders/${orderNumber}`);
+      const o = res.data;
+      return (
+        <>
+          <b>Order {o.orderNumber}</b>
+          <div className="mt-1.5 space-y-0.5">
+            {o.items.map((i) => (
+              <div key={i.id} className="flex justify-between gap-3">
+                <span>
+                  {i.nameSnapshot} ({i.labelSnapshot}) × {i.quantity}
+                </span>
+                <span className="font-semibold">{formatInr(i.priceInr * i.quantity)}</span>
+              </div>
+            ))}
+          </div>
+          <div className="mt-1.5 border-t border-gold-500/30 pt-1.5">
+            <div className="flex justify-between gap-3">
+              <span>Shipping</span>
+              <span>{o.shippingInr === 0 ? "FREE" : formatInr(o.shippingInr)}</span>
+            </div>
+            <div className="flex justify-between gap-3 font-bold text-brown-950">
+              <span>Total</span>
+              <span>{formatInr(o.totalInr)}</span>
+            </div>
+          </div>
+          <div className="mt-1.5">
+            Status: <b>{o.status}</b>
+            {o.paymentMethod === "UPI" && (
+              <>
+                {" "}
+                • Payment:{" "}
+                <b>{o.paymentStatus === "PAID" ? "received ✓" : "awaiting confirmation"}</b>
+              </>
+            )}
+          </div>
+          <div className="mt-1 text-brown-500">
+            Delivering to {o.customerName}, {o.city}, {o.state} — {o.pincode}
+          </div>
+          <div className="mt-1">
+            <Link
+              to={`/order-confirmed/${o.orderNumber}`}
+              onClick={() => setOpen(false)}
+              className="font-semibold text-gold-700 underline"
+            >
+              Open order page
+            </Link>
+          </div>
+        </>
+      );
+    } catch {
+      return (
+        <>
+          I couldn't find order <b>{orderNumber}</b>. Please check the number (it looks like
+          MFZ26081234) — or message us on WhatsApp and we'll trace it.
+        </>
+      );
+    }
+  }
+
   async function sendFreeform(e: FormEvent) {
     e.preventDefault();
     const text = draft.trim();
@@ -262,6 +324,17 @@ export function ChatBot() {
     setDraft("");
     setShowTracker(false);
     setMessages((prev) => [...prev, { from: "user", content: text }]);
+
+    // An order number anywhere in the message is answered from the database,
+    // never by the AI — it has no access to order records.
+    const orderMatch = text.match(/MFZ\s?\d{6,}/i);
+    if (orderMatch) {
+      setThinking(true);
+      const card = await lookupOrder(orderMatch[0].replace(/\s/g, "").toUpperCase());
+      setMessages((prev) => [...prev, { from: "bot", content: card }]);
+      setThinking(false);
+      return;
+    }
 
     // Without the AI configured, answer locally: product prices from the live
     // catalog, FAQ keyword matches, and a WhatsApp *offer* (never auto-open).

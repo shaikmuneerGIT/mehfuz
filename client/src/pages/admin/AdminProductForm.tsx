@@ -35,7 +35,10 @@ export function AdminProductForm() {
   useEffect(() => {
     api.get<Category[]>("/catalog/categories").then((res) => {
       setCategories(res.data);
-      if (!categoryId && res.data[0]) setCategoryId(res.data[0].id);
+      // Only pre-select a category for brand-new products. Defaulting here for
+      // an existing product raced the product loader below and silently
+      // reassigned it to the first category on save.
+      if (isNew) setCategoryId((cur) => cur || res.data[0]?.id || "");
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
