@@ -11,12 +11,12 @@ export function SiteFooter() {
       <CornerFlourish className="pointer-events-none absolute left-2 top-2 h-10 w-10 text-gold-400/40" />
       <CornerFlourish className="pointer-events-none absolute right-2 top-2 h-10 w-10 -scale-x-100 text-gold-400/40" />
 
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-8 px-4 py-11 sm:grid-cols-2 sm:px-6 md:grid-cols-4">
         <div>
           <Link to="/" className="inline-block">
             <Logo variant="footer" />
           </Link>
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-cream-100/70 font-roboto">
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-cream-100/70 font-roboto">
             Handpicked and sourced directly from the finest growing regions —
             Afghanistan, Kashmir, Coorg, Chikmagalur and Guntur.
           </p>
@@ -26,7 +26,7 @@ export function SiteFooter() {
           <h3 className="font-serif text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
             Quick Links
           </h3>
-          <ul className="mt-4 space-y-2 text-sm text-cream-100/80 font-roboto">
+          <ul className="mt-3 space-y-1.5 text-sm text-cream-100/80 font-roboto">
             <li><Link to="/terms" className="transition hover:text-gold-300">Terms and Conditions</Link></li>
             <li><Link to="/privacy" className="transition hover:text-gold-300">Privacy Policy</Link></li>
             <li><Link to="/shipping" className="transition hover:text-gold-300">Shipping &amp; Tracking</Link></li>
@@ -38,7 +38,7 @@ export function SiteFooter() {
           <h3 className="font-serif text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
             Shop
           </h3>
-          <ul className="mt-4 space-y-2 text-sm text-cream-100/80 font-roboto">
+          <ul className="mt-3 space-y-1.5 text-sm text-cream-100/80 font-roboto">
             <li><Link to="/shop" className="transition hover:text-gold-300">All products</Link></li>
             <li><Link to="/blog" className="transition hover:text-gold-300">Harvest Blog</Link></li>
             <li><Link to="/shop?category=figs-anjeer" className="transition hover:text-gold-300">Anjeer</Link></li>
@@ -52,7 +52,7 @@ export function SiteFooter() {
           <h3 className="font-serif text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
             For Orders &amp; Enquiries
           </h3>
-          <ul className="mt-4 space-y-2 text-sm text-cream-100/80 font-roboto">
+          <ul className="mt-3 space-y-1.5 text-sm text-cream-100/80 font-roboto">
             <li>
               <a href="tel:+919848918992" className="inline-flex items-center gap-2 transition hover:text-gold-300 font-roboto">
                 <FiPhoneCall className="h-3.5 w-3.5 text-gold-400" />
@@ -68,7 +68,7 @@ export function SiteFooter() {
           </ul>
 
           {/* Social Media Icons with 2026 AI Animations */}
-          <div className="mt-6 flex items-center gap-3.5">
+          <div className="mt-5 flex items-center gap-3.5">
             <a
               href="https://www.instagram.com/mehfuzdryfruits"
               target="_blank"
@@ -111,11 +111,11 @@ export function SiteFooter() {
 
       <Divider className="mx-auto max-w-md opacity-50" />
 
-      <div className="py-5 text-center text-xs text-cream-100/50">
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 py-4 text-center text-xs text-cream-100/50">
         <p>
           © {new Date().getFullYear()} Mehfuz Premium Dry Fruits &amp; Commodities. All rights reserved.
         </p>
-        <p className="mt-2 flex items-center justify-center gap-2 tracking-wide">
+        <p className="flex items-center gap-2 tracking-wide">
           {/* fssai wordmark */}
           <span className="inline-flex items-center rounded bg-cream-50 px-1.5 py-0.5">
             <svg viewBox="0 0 74 30" className="h-4 w-auto" aria-label="FSSAI" role="img">
