@@ -26,7 +26,6 @@ export function AnnouncementFlash() {
     freeAbove && freeAbove > 0
       ? `🚚 FREE delivery on orders above ${formatInr(freeAbove)}`
       : "🚚 FREE delivery on all orders",
-    "📍 Delivering across Hyderabad",
     "🌰 Sourced directly at the origin — Afghanistan, Kashmir, Coorg",
     "✅ FSSAI-registered premium quality",
     "💬 Order help on WhatsApp: +91 98489 18992",

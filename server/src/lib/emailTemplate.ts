@@ -106,13 +106,16 @@ export function customerEmailHtml(order: OrderWithItems): string {
   const payUrl = `${SITE}/order-confirmed/${order.orderNumber}`;
   const shortUrl = `${SITE}/o/${order.orderNumber}`;
   const upiId = process.env.UPI_ID;
+  const upiIdMasked = upiId
+    ? upiId.replace(/^(.*)(.{3})@/, (_m, head, tail) => "X".repeat(head.length) + tail + "@")
+    : null;
 
   const paymentSection = isUnpaidUpi
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${GOLD};border-radius:8px;margin:16px 0 0;background:#fffdf5;">
         <tr><td style="padding:14px 16px;font-size:13px;line-height:1.7;">
           <b style="color:${BROWN};">Complete your payment of ${formatInr(order.totalInr)}</b><br/>
           Open the button below to see your UPI QR code — scan it with GPay, PhonePe, or Paytm${
-            upiId ? `, or pay directly to UPI ID <b>${esc(upiId)}</b>` : ""
+            upiId ? `, or pay directly to our UPI ID <b>${esc(upiIdMasked ?? "")}</b> (shown in full on your order page)` : ""
           }. Please keep <b>${order.orderNumber}</b> in the payment note, then enter the transaction ID (UTR) on the same page.
           ${goldButton(payUrl, `Complete Payment — ${formatInr(order.totalInr)}`)}
         </td></tr>

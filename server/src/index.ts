@@ -50,13 +50,19 @@ app.get("/api/health", (_req, res) => res.json({ ok: true, service: "mehfuz-api"
 
 // Direct-UPI payment settings. When UPI_ID is unset the checkout shows COD
 // only, so deploying without configuring UPI changes nothing for customers.
-app.get("/api/config/upi", (_req, res) =>
+app.get("/api/config/upi", (_req, res) => {
+  const upiId = process.env.UPI_ID ?? null;
+  // Shown on screen instead of the raw number: XXXXXXX992@ybl
+  const masked = upiId
+    ? upiId.replace(/^(.*)(.{3})@/, (_m, head: string, tail: string) => "X".repeat(head.length) + tail + "@")
+    : null;
   res.json({
-    enabled: Boolean(process.env.UPI_ID),
-    upiId: process.env.UPI_ID ?? null,
+    enabled: Boolean(upiId),
+    upiId,
+    upiIdMasked: masked,
     payeeName: process.env.UPI_PAYEE_NAME ?? "Mehfuz Dry Fruits",
-  })
-);
+  });
+});
 
 // Whether the AI assistant is available (key configured server-side).
 app.get("/api/config/chat", (_req, res) =>

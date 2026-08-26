@@ -11,6 +11,7 @@ import { FiCheckCircle } from "react-icons/fi";
 interface UpiConfig {
   enabled: boolean;
   upiId: string | null;
+  upiIdMasked: string | null;
   payeeName: string;
 }
 
@@ -80,7 +81,7 @@ function UpiPaymentBox({ order }: { order: Order }) {
           <div>
             <div className="text-xs uppercase tracking-wide text-brown-500">UPI ID</div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold text-brown-950">{config.upiId}</span>
+              <span className="font-semibold tracking-wide text-brown-950">{config.upiIdMasked ?? config.upiId}</span>
               <button
                 onClick={copyUpiId}
                 className="rounded-full border border-gold-500/40 px-3 py-0.5 text-xs font-semibold text-brown-800 hover:bg-cream-100"
