@@ -127,6 +127,76 @@ function CategoryRow({ category, onSaved }: { category: Category; onSaved: () =>
   );
 }
 
+function AddCategoryForm({ onCreated }: { onCreated: () => void }) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function create() {
+    if (name.trim().length < 2) {
+      setError("Enter a category name (at least 2 letters).");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post("/admin/categories", {
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
+      setName("");
+      setDescription("");
+      onCreated();
+    } catch (err) {
+      setError(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          "Could not create the category — the name may already exist."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-gold-500/30 bg-white p-4">
+      <div className="mb-2 text-sm font-semibold text-brown-950">Add a new category</div>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium text-brown-800">Name</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="input w-56"
+            placeholder="e.g. Honey"
+          />
+        </label>
+        <label className="block flex-1 text-sm">
+          <span className="mb-1 block font-medium text-brown-800">Description (optional)</span>
+          <input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="input"
+            placeholder="Shown on the shop page for this category"
+          />
+        </label>
+        <button
+          onClick={create}
+          disabled={saving}
+          className="rounded-full bg-brown-950 px-5 py-2 text-sm font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
+        >
+          {saving ? "Adding…" : "+ Add Category"}
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-brown-500">
+        New categories appear in Popular Categories and in the product form's category list —
+        then add products to it from the Products page.
+      </p>
+      {error && <p className="mt-2 text-xs text-maroon-700">{error}</p>}
+    </div>
+  );
+}
+
 export function AdminCategories() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,6 +211,19 @@ export function AdminCategories() {
 
   useEffect(load, []);
 
+  async function remove(c: Category) {
+    if (!confirm(`Delete the empty category "${c.name}"?`)) return;
+    try {
+      await api.delete(`/admin/categories/${c.id}`);
+      load();
+    } catch (err) {
+      alert(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          "Could not delete this category."
+      );
+    }
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -151,12 +234,24 @@ export function AdminCategories() {
         </p>
       </div>
 
+      <AddCategoryForm onCreated={load} />
+
       {loading ? (
         <p className="text-brown-500">Loading...</p>
       ) : (
         <div className="space-y-3">
           {categories.map((c) => (
-            <CategoryRow key={c.id} category={c} onSaved={load} />
+            <div key={c.id}>
+              <CategoryRow category={c} onSaved={load} />
+              {(c._count?.products ?? 0) === 0 && (
+                <button
+                  onClick={() => remove(c)}
+                  className="mt-1 text-xs font-semibold text-maroon-700 hover:underline"
+                >
+                  Delete empty category
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
