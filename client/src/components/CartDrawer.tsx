@@ -8,9 +8,10 @@ import { resolveProductImagePath } from "./ProductImage";
 import { CartThumb, cartLineImage } from "./CartThumb";
 import { FiX, FiTrash2, FiShoppingBag, FiMinus, FiPlus, FiArrowRight } from "react-icons/fi";
 
-interface ShopConfig {
-  shippingFeeInr: number;
-  shippingThresholdInr: number;
+interface ShopQuote {
+  shippingEnabled: boolean;
+  freeAbove: number;
+  quote: { feeInr: number; zone: string };
 }
 
 /** Catalog tiles shown inside the drawer so shoppers can add more without leaving. */
@@ -89,17 +90,20 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [shop, setShop] = useState<ShopConfig>({ shippingFeeInr: 79, shippingThresholdInr: 999 });
+  const [shop, setShop] = useState<ShopQuote | null>(null);
 
   useEffect(() => {
-    api.get<ShopConfig>("/config/shop").then((res) => setShop(res.data)).catch(() => {});
-  }, []);
+    api
+      .get<ShopQuote>("/config/shop", { params: { subtotal: subtotalInr } })
+      .then((res) => setShop(res.data))
+      .catch(() => {});
+  }, [subtotalInr]);
 
-  const deliveryInr =
-    shop.shippingFeeInr === 0 || subtotalInr >= shop.shippingThresholdInr
-      ? 0
-      : shop.shippingFeeInr;
-  const totalInr = subtotalInr + deliveryInr;
+  // The exact fee needs a pincode, so the drawer shows free-or-pending and
+  // the checkout page shows the real number once the pincode is typed.
+  const freeDelivery =
+    !shop?.shippingEnabled || (shop.freeAbove > 0 && subtotalInr >= shop.freeAbove);
+  const totalInr = subtotalInr;
 
   // Fetch the catalog the first time the drawer opens.
   useEffect(() => {
@@ -255,12 +259,13 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             <div className="mt-1.5 flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-brown-700">
               <span>Delivery Fee</span>
               <span className="text-sm font-bold text-brown-950">
-                {deliveryInr === 0 ? "FREE" : formatInr(deliveryInr)}
+                {freeDelivery ? "FREE" : "at checkout"}
               </span>
             </div>
-            {deliveryInr > 0 && (
+            {!freeDelivery && shop && shop.freeAbove > 0 && (
               <p className="mt-1 text-[11px] text-brown-500">
-                Free delivery on orders over {formatInr(shop.shippingThresholdInr)}.
+                Free delivery on orders over {formatInr(shop.freeAbove)} — exact fee shows at
+                checkout from your pincode.
               </p>
             )}
             <div className="mt-3 flex items-center justify-between border-t border-gold-500/30 pt-3">

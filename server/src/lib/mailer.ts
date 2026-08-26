@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type { Order, OrderItem } from "@prisma/client";
 import { formatInr } from "./formatInr";
+import { generateInvoicePdf } from "./invoice";
 import {
   customerEmailHtml,
   ownerEmailHtml,
@@ -56,7 +57,7 @@ function orderLines(order: OrderWithItems): string {
  * {@link sendPaymentConfirmedNotifications} once the payment is confirmed.
  * Fire-and-forget: an SMTP hiccup must never fail a committed checkout.
  */
-export function sendOrderNotifications(order: OrderWithItems): void {
+export async function sendOrderNotifications(order: OrderWithItems): Promise<void> {
   if (!transport) return;
 
   // An unpaid UPI order is not a confirmed order — stay silent for now.
@@ -64,6 +65,16 @@ export function sendOrderNotifications(order: OrderWithItems): void {
 
   const from = `"Mehfuz Dry Fruits" <${SMTP_USER}>`;
   const body = orderLines(order);
+
+  // The invoice rides along with both confirmations; if rendering ever
+  // fails the emails still go out, just without the attachment.
+  let attachments: { filename: string; content: Buffer }[] = [];
+  try {
+    const pdf = await generateInvoicePdf(order);
+    attachments = [{ filename: `Invoice-${order.orderNumber}.pdf`, content: pdf }];
+  } catch (err) {
+    console.error("Invoice render failed:", err instanceof Error ? err.message : err);
+  }
 
   if (order.email) {
     transport
@@ -80,6 +91,7 @@ export function sendOrderNotifications(order: OrderWithItems): void {
             : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
           `Questions? Call or WhatsApp +91 98489 18992.\n\nMehfuz — Premium Dry Fruits & Commodities\nhttps://mehfuzdryfruits.in`,
         html: customerEmailHtml(order),
+        attachments,
       })
       .catch((err) => console.error("Customer email failed:", err.message));
   }
@@ -92,6 +104,7 @@ export function sendOrderNotifications(order: OrderWithItems): void {
         subject: `New order ${order.orderNumber} — ${formatInr(order.totalInr)} (${order.paymentMethod})`,
         text: `A new order just came in on mehfuzdryfruits.in:\n\n${body}\n\nOpen the admin panel: https://mehfuzdryfruits.in/admin`,
         html: ownerEmailHtml(order),
+        attachments,
       })
       .catch((err) => console.error("Owner alert email failed:", err.message));
   }
@@ -103,7 +116,7 @@ export function sendOrderNotifications(order: OrderWithItems): void {
  * the now-payable order to pack.
  */
 export function sendPaymentConfirmedNotifications(order: OrderWithItems): void {
-  sendOrderNotifications({ ...order, paymentStatus: "PAID" });
+  void sendOrderNotifications({ ...order, paymentStatus: "PAID" });
 }
 
 /**

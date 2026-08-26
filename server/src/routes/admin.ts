@@ -391,6 +391,33 @@ adminRouter.get("/summary", async (_req, res) => {
   });
 });
 
+// ---- Shipping / delivery-fee configuration ----
+
+const shippingConfigSchema = z.object({
+  enabled: z.boolean(),
+  warehousePincode: z.string().regex(/^\d{6}$/, "6-digit pincode"),
+  freeAbove: z.number().int().min(0).max(100000),
+  localFee: z.number().int().min(0).max(5000),
+  cityFee: z.number().int().min(0).max(5000),
+  regionFee: z.number().int().min(0).max(5000),
+  nationalFee: z.number().int().min(0).max(5000),
+});
+
+adminRouter.get("/shipping", async (_req, res) => {
+  const { loadShippingConfig } = await import("../lib/shipping");
+  res.json(await loadShippingConfig());
+});
+
+adminRouter.put("/shipping", async (req, res) => {
+  const parsed = shippingConfigSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid shipping settings", details: parsed.error.flatten() });
+  }
+  const { saveShippingConfig } = await import("../lib/shipping");
+  await saveShippingConfig(parsed.data);
+  res.json(parsed.data);
+});
+
 // ---- Hero slideshow banners ----
 
 const heroSlideSchema = z.object({

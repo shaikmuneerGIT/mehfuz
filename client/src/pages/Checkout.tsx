@@ -6,9 +6,10 @@ import { api } from "../api/client";
 import { PageBanner } from "../components/PageBanner";
 import { CartThumb, cartLineImage } from "../components/CartThumb";
 
-interface ShopConfig {
-  shippingFeeInr: number;
-  shippingThresholdInr: number;
+interface ShopQuote {
+  shippingEnabled: boolean;
+  freeAbove: number;
+  quote: { feeInr: number; zone: string };
 }
 
 interface UpiConfig {
@@ -48,12 +49,20 @@ export function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upiConfig, setUpiConfig] = useState<UpiConfig | null>(null);
-  const [shop, setShop] = useState<ShopConfig>({ shippingFeeInr: 79, shippingThresholdInr: 999 });
+  const [shipQuote, setShipQuote] = useState<ShopQuote | null>(null);
 
   useEffect(() => {
     api.get<UpiConfig>("/config/upi").then((res) => setUpiConfig(res.data)).catch(() => {});
-    api.get<ShopConfig>("/config/shop").then((res) => setShop(res.data)).catch(() => {});
   }, []);
+
+  // Re-quote delivery whenever the pincode is complete or the cart changes.
+  useEffect(() => {
+    const pin = form.pincode.replace(/\D/g, "");
+    api
+      .get<ShopQuote>("/config/shop", { params: { subtotal: subtotalInr, pincode: pin } })
+      .then((res) => setShipQuote(res.data))
+      .catch(() => {});
+  }, [form.pincode, subtotalInr]);
 
   // UPI (QR + transaction reference) is the payment method; COD only
   // remains as a fallback while UPI is not yet configured on the server.
@@ -63,10 +72,8 @@ export function Checkout() {
     return <Navigate to="/shop" replace />;
   }
 
-  const shippingInr =
-    shop.shippingFeeInr === 0 || subtotalInr >= shop.shippingThresholdInr
-      ? 0
-      : shop.shippingFeeInr;
+  const pinComplete = form.pincode.replace(/\D/g, "").length === 6;
+  const shippingInr = shipQuote ? shipQuote.quote.feeInr : 0;
   const totalInr = subtotalInr + shippingInr;
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -254,7 +261,13 @@ export function Checkout() {
               </div>
               <div className="flex justify-between text-brown-700">
                 <span>Shipping</span>
-                <span>{shippingInr === 0 ? "Free" : formatInr(shippingInr)}</span>
+                <span>
+                  {shipQuote?.shippingEnabled && !pinComplete
+                    ? "enter pincode"
+                    : shippingInr === 0
+                      ? "Free"
+                      : formatInr(shippingInr)}
+                </span>
               </div>
               <div className="mt-2 flex justify-between font-roboto text-base font-bold text-brown-950">
                 <span>Total</span>

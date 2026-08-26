@@ -85,6 +85,7 @@ function addressBlock(order: OrderWithItems): string {
     <tr><td style="padding:12px 14px;line-height:1.6;">
       <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};">Delivery Address</span><br/>
       <b>${esc(order.customerName)}</b> • ${esc(order.phone)}<br/>
+      ${order.email ? `${esc(order.email)}<br/>` : ""}
       ${esc(order.addressLine1)}${order.addressLine2 ? ", " + esc(order.addressLine2) : ""}<br/>
       ${esc(order.city)}, ${esc(order.state)} ${esc(order.pincode)}
       ${order.notes ? `<br/><i style="color:${MUTED};">Notes: ${esc(order.notes)}</i>` : ""}
@@ -103,6 +104,7 @@ function goldButton(href: string, label: string): string {
 export function customerEmailHtml(order: OrderWithItems): string {
   const isUnpaidUpi = order.paymentMethod === "UPI" && order.paymentStatus !== "PAID";
   const payUrl = `${SITE}/order-confirmed/${order.orderNumber}`;
+  const shortUrl = `${SITE}/o/${order.orderNumber}`;
   const upiId = process.env.UPI_ID;
 
   const paymentSection = isUnpaidUpi
@@ -130,7 +132,7 @@ export function customerEmailHtml(order: OrderWithItems): string {
      ${itemsTable(order)}
      ${paymentSection}
      ${addressBlock(order)}
-     <p style="margin:16px 0 0;font-size:12px;color:${MUTED};">Track your order anytime: <a href="${payUrl}" style="color:${GOLD.replace("#", "#")};font-weight:bold;">${payUrl}</a></p>`
+     <p style="margin:18px 0 0;font-size:14px;color:${BROWN};"><b>Thanks for choosing Mehfuz!</b> View your order anytime: <a href="${shortUrl}" style="color:${GOLD};font-weight:bold;">${shortUrl.replace("https://", "")}</a></p>`
   );
 }
 

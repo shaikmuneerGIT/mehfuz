@@ -63,14 +63,25 @@ app.get("/api/config/chat", (_req, res) =>
   res.json({ aiEnabled: Boolean(process.env.ANTHROPIC_API_KEY) })
 );
 
-// Shop-wide commercial settings the storefront needs for display; the
-// authoritative math still happens server-side at order creation.
-app.get("/api/config/shop", (_req, res) =>
+// Delivery quote for the storefront: pass ?subtotal=&pincode= to price a
+// cart. The same function prices the real order server-side at checkout.
+app.get("/api/config/shop", async (req, res) => {
+  const { loadShippingConfig, quoteShipping } = await import("./lib/shipping");
+  const config = await loadShippingConfig();
+  const subtotal = Number(req.query.subtotal ?? 0) || 0;
+  const quote = quoteShipping(config, subtotal, String(req.query.pincode ?? ""));
   res.json({
-    shippingFeeInr: Number(process.env.SHIPPING_FEE_INR ?? 79),
-    shippingThresholdInr: Number(process.env.SHIPPING_THRESHOLD_INR ?? 999),
-  })
-);
+    shippingEnabled: config.enabled,
+    freeAbove: config.freeAbove,
+    fees: {
+      local: config.localFee,
+      city: config.cityFee,
+      region: config.regionFee,
+      national: config.nationalFee,
+    },
+    quote: { feeInr: quote.feeInr, zone: quote.zone },
+  });
+});
 
 // Admin-managed hero slideshow content; null means "use the built-in slides".
 app.get("/api/config/hero-slides", async (_req, res) => {
@@ -99,6 +110,14 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
 app.use("/api/chat", chatRouter);
+
+// Short order link for emails and messages: /o/MFZ26081234 opens the
+// customer's order page.
+app.get("/o/:orderNumber", (req, res) => {
+  const num = String(req.params.orderNumber).toUpperCase();
+  if (!/^MFZ\d{4,}$/.test(num)) return res.redirect("/");
+  res.redirect(`/order-confirmed/${num}`);
+});
 
 // Unmatched API routes are a 404 regardless of the storefront below.
 app.use("/api", (_req, res) => res.status(404).json({ error: "Not found" }));

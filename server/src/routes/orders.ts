@@ -42,10 +42,7 @@ const checkoutSchema = z.object({
     .min(1),
 });
 
-// Env-configurable so shipping can be switched off (fee 0) or re-priced
-// without a rebuild — edit the server .env and restart.
-const SHIPPING_THRESHOLD_INR = Number(process.env.SHIPPING_THRESHOLD_INR ?? 999);
-const SHIPPING_FEE_INR = Number(process.env.SHIPPING_FEE_INR ?? 79);
+import { loadShippingConfig, quoteShipping } from "../lib/shipping";
 
 ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   const parsed = checkoutSchema.safeParse(req.body);
@@ -88,7 +85,10 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
     };
   });
 
-  const shippingInr = subtotalInr >= SHIPPING_THRESHOLD_INR ? 0 : SHIPPING_FEE_INR;
+  // Delivery fee depends on how far the customer's pincode is from the
+  // warehouse — same rules the checkout page shows before they pay.
+  const shippingConfig = await loadShippingConfig();
+  const shippingInr = quoteShipping(shippingConfig, subtotalInr, data.pincode).feeInr;
   const totalInr = subtotalInr + shippingInr;
 
   const order = await prisma.$transaction(async (tx) => {
@@ -175,13 +175,21 @@ ordersRouter.get("/", requireAdmin, async (_req: AuthedRequest, res) => {
 // marks the order paid; the reference itself never changes paymentStatus.
 // Customers give just the last few digits of the UTR — full 12-digit IDs
 // are error-prone to copy; 4-6 trailing digits are enough to match the
-// transaction in the UPI app.
-const paymentRefSchema = z.object({ utr: z.string().min(4).max(40) });
+// transaction in the UPI app. Digits only: a real customer once typed
+// "payment done" here, which is useless for matching the transaction.
+const paymentRefSchema = z.object({
+  utr: z
+    .string()
+    .transform((s) => s.replace(/\s/g, ""))
+    .pipe(z.string().regex(/^\d{4,16}$/, "digits only")),
+});
 
 ordersRouter.post("/:orderNumber/payment-ref", checkoutLimiter, async (req, res) => {
   const parsed = paymentRefSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Please enter the UPI transaction reference (UTR)" });
+    return res.status(400).json({
+      error: "Please enter only the digits of the transaction ID (e.g. 731205)",
+    });
   }
   const order = await prisma.order.findUnique({
     where: { orderNumber: req.params.orderNumber as string },

@@ -79,12 +79,13 @@ chatRouter.post("/", chatLimiter, async (req, res) => {
   try {
     const client = new Anthropic({ apiKey });
     const catalog = await catalogSnapshot();
-    const fee = Number(process.env.SHIPPING_FEE_INR ?? 79);
-    const threshold = Number(process.env.SHIPPING_THRESHOLD_INR ?? 999);
-    const deliveryFact =
-      fee === 0
-        ? "Delivery: FREE on all orders right now."
-        : `Delivery: FREE on orders over ₹${threshold}, otherwise flat ₹${fee}.`;
+    const { loadShippingConfig } = await import("../lib/shipping");
+    const sc = await loadShippingConfig();
+    const deliveryFact = !sc.enabled
+      ? "Delivery: FREE on all orders right now."
+      : `Delivery fee depends on the customer's pincode (distance from our Hyderabad warehouse): ₹${sc.localFee} nearby, ₹${sc.cityFee} within the city, ₹${sc.regionFee} within the region, ₹${sc.nationalFee} rest of India${
+          sc.freeAbove > 0 ? `; FREE on orders of ₹${sc.freeAbove} or more` : ""
+        }. The exact fee shows at checkout after entering the pincode.`;
     const response = await client.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 1024,

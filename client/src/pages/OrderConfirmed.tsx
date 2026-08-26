@@ -113,8 +113,9 @@ function UpiPaymentBox({ order }: { order: Order }) {
                   minLength={4}
                   maxLength={12}
                   inputMode="numeric"
+                  pattern="[0-9]{4,12}"
                   value={utr}
-                  onChange={(e) => setUtr(e.target.value)}
+                  onChange={(e) => setUtr(e.target.value.replace(/\D/g, ""))}
                   className="input"
                   placeholder="e.g. 731205"
                 />
@@ -211,6 +212,7 @@ export function OrderConfirmed() {
               <p className="font-roboto">{order.addressLine1}{order.addressLine2 ? `, ${order.addressLine2}` : ""}</p>
               <p className="font-roboto">{order.city}, {order.state} - {order.pincode}</p>
               <p className="mt-1 font-roboto">Phone: {order.phone}</p>
+              {order.email && <p className="font-roboto">Email: {order.email}</p>}
               <p className="mt-2 font-roboto">
                 Payment:{" "}
                 {order.paymentMethod === "UPI"
@@ -242,7 +244,17 @@ export function OrderConfirmed() {
           </a>
         )}
 
-        <div className="mt-8 flex justify-center gap-4 font-roboto">
+        <p className="mt-7 text-sm text-brown-800 font-roboto">
+          <b>Thanks for choosing Mehfuz!</b> View your order anytime:{" "}
+          <a
+            href={`/o/${orderNumber}`}
+            className="font-semibold text-gold-700 underline"
+          >
+            mehfuzdryfruits.in/o/{orderNumber}
+          </a>
+        </p>
+
+        <div className="mt-5 flex justify-center gap-4 font-roboto">
           <Link
             to="/shop"
             className="metallic-gold-btn rounded-full px-8 py-3 text-sm font-bold shadow-md font-roboto"
