@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useCart } from "../context/CartContext";
 import { Logo } from "./Logo";
 import { CartDrawer } from "./CartDrawer";
+import { AnnouncementFlash } from "./AnnouncementFlash";
 import { FiShoppingBag, FiMenu, FiX } from "react-icons/fi";
 import { FaInstagram, FaFacebookF, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
@@ -29,6 +30,7 @@ export function SiteHeader() {
     // containing block that clips the fixed-position cart/menu drawers to the
     // header's box (and bg-black is opaque, so the blur showed nothing anyway).
     <header className="sticky top-0 z-50 border-b border-gold-500/40 bg-black shadow-lg">
+      <AnnouncementFlash />
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-2 sm:px-6">
         <Link to="/" aria-label="Mehfuz home" className="shrink-0">
           <Wordmark />

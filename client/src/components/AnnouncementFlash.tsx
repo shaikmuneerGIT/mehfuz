@@ -34,12 +34,12 @@ export function AnnouncementFlash() {
   const track = [...items, ...items];
 
   return (
-    <div className="overflow-hidden border-b border-gold-500/50 bg-gradient-to-r from-brown-950 via-brown-900 to-brown-950 py-2 select-none">
+    <div className="overflow-hidden border-b border-gold-500/50 bg-gradient-to-r from-brown-950 via-brown-900 to-brown-950 py-3 select-none">
       <div className="ai-marquee-track flex w-max gap-12">
         {track.map((text, i) => (
           <span
             key={i}
-            className="whitespace-nowrap text-xs font-semibold tracking-wide text-gold-300 font-roboto"
+            className="whitespace-nowrap text-sm font-semibold tracking-wide text-gold-300 font-roboto"
           >
             {text}
           </span>

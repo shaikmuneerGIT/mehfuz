@@ -1,5 +1,4 @@
 import { HeroSlideshow } from "../components/HeroSlideshow";
-import { AnnouncementFlash } from "../components/AnnouncementFlash";
 import { PopularCategoriesSection } from "../components/home/PopularCategoriesSection";
 import { FeaturedSelectionSection } from "../components/home/FeaturedSelectionSection";
 import { TestimonialsSection } from "../components/home/TestimonialsSection";
@@ -10,9 +9,6 @@ import { QuickContactSection } from "../components/home/QuickContactSection";
 export function Home() {
   return (
     <div className="parchment font-roboto">
-      {/* Flash announcement strip */}
-      <AnnouncementFlash />
-
       {/* Hero Slideshow */}
       <HeroSlideshow />
 
