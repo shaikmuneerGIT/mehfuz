@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Order, Product } from "../types";
 import { formatInr } from "../lib/format";
-import { FiMessageCircle, FiX, FiSend } from "react-icons/fi";
+import { FiX, FiSend } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 
 interface Message {

@@ -136,8 +136,8 @@ export function Shop() {
             </button>
           </div>
         ) : (
-          {/* Flex rather than grid so a partial last row — or a category with
-              a single product — stays centred instead of hugging the left. */}
+          // Flex rather than grid so a partial last row — or a category with
+          // a single product — stays centred instead of hugging the left.
           <div className="flex flex-wrap justify-center gap-4 sm:gap-6 font-roboto">
             {products.map((p) => (
               <div
