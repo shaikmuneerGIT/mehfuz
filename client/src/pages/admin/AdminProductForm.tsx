@@ -106,8 +106,10 @@ export function AdminProductForm() {
         name,
         description,
         origin,
-        badge: badge || undefined,
-        imageUrl: imageUrl || undefined,
+        // Send cleared fields as empty strings — omitting them makes the
+        // server keep the old value, so a removed badge/photo never clears.
+        badge,
+        imageUrl,
         categoryId,
         isFeatured,
         isActive,

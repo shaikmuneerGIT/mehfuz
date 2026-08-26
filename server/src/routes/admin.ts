@@ -8,6 +8,17 @@ import { requireAdmin } from "../middleware/auth";
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
 
+/** Empty/whitespace optional text fields become null instead of being kept. */
+function blankToNull(data: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...data };
+  for (const key of ["description", "origin", "badge", "imageUrl"]) {
+    if (key in out && typeof out[key] === "string" && !(out[key] as string).trim()) {
+      out[key] = null;
+    }
+  }
+  return out;
+}
+
 function slugify(input: string): string {
   return input
     .toLowerCase()
@@ -99,7 +110,7 @@ adminRouter.post("/products", async (req, res) => {
 
   const product = await prisma.product.create({
     data: {
-      ...productData,
+      ...(blankToNull(productData) as typeof productData),
       slug: slugify(productData.name) + "-" + Math.random().toString(36).slice(2, 7),
       variants: { create: variants.map(({ id, ...v }) => v) },
     },
@@ -156,7 +167,10 @@ adminRouter.put("/products/:id", async (req, res) => {
             },
           })
     ),
-    prisma.product.update({ where: { id: req.params.id }, data: productData }),
+    prisma.product.update({
+      where: { id: req.params.id },
+      data: blankToNull(productData) as typeof productData,
+    }),
   ]);
 
   const product = await prisma.product.findUnique({
