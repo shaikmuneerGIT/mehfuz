@@ -11,7 +11,7 @@ export function SiteFooter() {
       <CornerFlourish className="pointer-events-none absolute left-2 top-2 h-10 w-10 text-gold-400/40" />
       <CornerFlourish className="pointer-events-none absolute right-2 top-2 h-10 w-10 -scale-x-100 text-gold-400/40" />
 
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:grid-cols-2 sm:px-6 md:grid-cols-4">
         <div>
           <Link to="/" className="inline-block">
             <Logo variant="footer" />
@@ -20,6 +20,18 @@ export function SiteFooter() {
             Handpicked and sourced directly from the finest growing regions —
             Afghanistan, Kashmir, Coorg, Chikmagalur and Guntur.
           </p>
+        </div>
+
+        <div>
+          <h3 className="font-serif text-sm font-semibold uppercase tracking-[0.18em] text-gold-400">
+            Quick Links
+          </h3>
+          <ul className="mt-4 space-y-2 text-sm text-cream-100/80 font-roboto">
+            <li><Link to="/terms" className="transition hover:text-gold-300">Terms and Conditions</Link></li>
+            <li><Link to="/privacy" className="transition hover:text-gold-300">Privacy Policy</Link></li>
+            <li><Link to="/shipping" className="transition hover:text-gold-300">Shipping &amp; Tracking</Link></li>
+            <li><Link to="/returns" className="transition hover:text-gold-300">Return, Exchange &amp; Refund Policy</Link></li>
+          </ul>
         </div>
 
         <div>

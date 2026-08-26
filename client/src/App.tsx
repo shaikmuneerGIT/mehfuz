@@ -4,6 +4,7 @@ import { SiteHeader } from "./components/SiteHeader";
 import { SiteFooter } from "./components/SiteFooter";
 import { ChatBot } from "./components/ChatBot";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { TermsPage, PrivacyPage, ShippingPage, ReturnsPage } from "./pages/Policies";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { Home } from "./pages/Home";
 import { Shop } from "./pages/Shop";
@@ -45,6 +46,10 @@ export default function App() {
       <Route path="/about" element={<StorefrontLayout><About /></StorefrontLayout>} />
       <Route path="/blog" element={<StorefrontLayout><Blog /></StorefrontLayout>} />
       <Route path="/contact" element={<StorefrontLayout><Contact /></StorefrontLayout>} />
+      <Route path="/terms" element={<StorefrontLayout><TermsPage /></StorefrontLayout>} />
+      <Route path="/privacy" element={<StorefrontLayout><PrivacyPage /></StorefrontLayout>} />
+      <Route path="/shipping" element={<StorefrontLayout><ShippingPage /></StorefrontLayout>} />
+      <Route path="/returns" element={<StorefrontLayout><ReturnsPage /></StorefrontLayout>} />
       <Route path="/product/:slug" element={<StorefrontLayout><ProductDetail /></StorefrontLayout>} />
       {/* The cart lives in the slide-over drawer; old /cart links go to the shop. */}
       <Route path="/cart" element={<Navigate to="/shop" replace />} />
