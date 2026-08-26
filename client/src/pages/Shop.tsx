@@ -136,9 +136,16 @@ export function Shop() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 font-roboto">
+          {/* Flex rather than grid so a partial last row — or a category with
+              a single product — stays centred instead of hugging the left. */}
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 font-roboto">
             {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
+              <div
+                key={p.id}
+                className="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-1rem)] md:w-[calc(25%-1.125rem)]"
+              >
+                <ProductCard product={p} />
+              </div>
             ))}
           </div>
         )}

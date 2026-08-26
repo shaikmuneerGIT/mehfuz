@@ -21,9 +21,14 @@ export function FeaturedSelectionSection() {
     <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-18 font-roboto">
       <SectionTitle eyebrow="Handpicked Harvest">Featured Selection</SectionTitle>
       {/* Exactly 1 Row Grid (4 items max) */}
-      <div className="mt-10 grid grid-cols-2 gap-4 sm:gap-6 md:grid-cols-4 font-roboto">
+      <div className="mt-10 flex flex-wrap justify-center gap-4 sm:gap-6 font-roboto">
         {featuredOneRow.map((p) => (
-          <ProductCard key={p.id} product={p} />
+          <div
+            key={p.id}
+            className="w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-1rem)] md:w-[calc(25%-1.125rem)]"
+          >
+            <ProductCard product={p} />
+          </div>
         ))}
       </div>
       <div className="mt-10 text-center font-roboto">
