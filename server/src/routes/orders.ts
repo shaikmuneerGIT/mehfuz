@@ -242,6 +242,14 @@ ordersRouter.patch("/:id/payment", requireAdmin, async (req: AuthedRequest, res)
   res.json(order);
 });
 
+// Hard-delete an order (admin) — for test orders and junk. Items cascade.
+ordersRouter.delete("/:id", requireAdmin, async (req: AuthedRequest, res) => {
+  const order = await prisma.order.findUnique({ where: { id: req.params.id as string } });
+  if (!order) return res.status(404).json({ error: "Order not found" });
+  await prisma.order.delete({ where: { id: order.id } });
+  res.status(204).send();
+});
+
 const statusSchema = z.object({
   status: z.enum(["PENDING", "CONFIRMED", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"]),
 });

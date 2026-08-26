@@ -35,6 +35,12 @@ export function AdminOrders() {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
   }
 
+  async function removeOrder(orderId: string, orderNumber: string) {
+    if (!confirm(`Permanently delete order ${orderNumber}? This cannot be undone.`)) return;
+    await api.delete(`/orders/${orderId}`);
+    setOrders((prev) => prev.filter((o) => o.id !== orderId));
+  }
+
   async function markPaid(orderId: string) {
     if (!confirm("Confirm you checked your bank/UPI app and this payment arrived?")) return;
     await api.patch(`/orders/${orderId}/payment`, { paymentStatus: "PAID" });
@@ -164,6 +170,12 @@ export function AdminOrders() {
                   >
                     Message customer on WhatsApp
                   </a>
+                  <button
+                    onClick={() => removeOrder(o.id, o.orderNumber)}
+                    className="mb-2 ml-3 text-xs font-semibold text-maroon-700 hover:underline"
+                  >
+                    Delete order
+                  </button>
                   <ul className="space-y-1">
                     {o.items.map((item) => (
                       <li key={item.id} className="flex justify-between">
