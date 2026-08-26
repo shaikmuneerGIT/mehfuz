@@ -38,8 +38,10 @@ const checkoutSchema = z.object({
     .min(1),
 });
 
-const SHIPPING_THRESHOLD_INR = 999;
-const SHIPPING_FEE_INR = 79;
+// Env-configurable so shipping can be switched off (fee 0) or re-priced
+// without a rebuild — edit the server .env and restart.
+const SHIPPING_THRESHOLD_INR = Number(process.env.SHIPPING_THRESHOLD_INR ?? 999);
+const SHIPPING_FEE_INR = Number(process.env.SHIPPING_FEE_INR ?? 79);
 
 ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   const parsed = checkoutSchema.safeParse(req.body);

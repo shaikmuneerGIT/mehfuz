@@ -63,6 +63,15 @@ app.get("/api/config/chat", (_req, res) =>
   res.json({ aiEnabled: Boolean(process.env.ANTHROPIC_API_KEY) })
 );
 
+// Shop-wide commercial settings the storefront needs for display; the
+// authoritative math still happens server-side at order creation.
+app.get("/api/config/shop", (_req, res) =>
+  res.json({
+    shippingFeeInr: Number(process.env.SHIPPING_FEE_INR ?? 79),
+    shippingThresholdInr: Number(process.env.SHIPPING_THRESHOLD_INR ?? 999),
+  })
+);
+
 // Admin-managed hero slideshow content; null means "use the built-in slides".
 app.get("/api/config/hero-slides", async (_req, res) => {
   const { prisma } = await import("./lib/prisma");

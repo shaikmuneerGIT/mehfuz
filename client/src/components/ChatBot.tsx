@@ -18,8 +18,8 @@ const FAQS: { q: string; a: ReactNode }[] = [
     q: "Delivery charges & time?",
     a: (
       <>
-        Delivery is <b>FREE on orders over ₹999</b>; below that a flat ₹79 applies. After you
-        order, our team confirms the delivery timing for your pincode by call or WhatsApp.
+        Delivery is currently <b>FREE on all orders</b>! After you order, our team confirms
+        the delivery timing for your pincode by call or WhatsApp.
       </>
     ),
   },

@@ -6,8 +6,10 @@ import { api } from "../api/client";
 import { PageBanner } from "../components/PageBanner";
 import { CartThumb, cartLineImage } from "../components/CartThumb";
 
-const SHIPPING_THRESHOLD = 999;
-const SHIPPING_FEE = 79;
+interface ShopConfig {
+  shippingFeeInr: number;
+  shippingThresholdInr: number;
+}
 
 interface UpiConfig {
   enabled: boolean;
@@ -46,9 +48,11 @@ export function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upiConfig, setUpiConfig] = useState<UpiConfig | null>(null);
+  const [shop, setShop] = useState<ShopConfig>({ shippingFeeInr: 79, shippingThresholdInr: 999 });
 
   useEffect(() => {
     api.get<UpiConfig>("/config/upi").then((res) => setUpiConfig(res.data)).catch(() => {});
+    api.get<ShopConfig>("/config/shop").then((res) => setShop(res.data)).catch(() => {});
   }, []);
 
   // UPI (QR + transaction reference) is the payment method; COD only
@@ -59,7 +63,10 @@ export function Checkout() {
     return <Navigate to="/shop" replace />;
   }
 
-  const shippingInr = subtotalInr >= SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shippingInr =
+    shop.shippingFeeInr === 0 || subtotalInr >= shop.shippingThresholdInr
+      ? 0
+      : shop.shippingFeeInr;
   const totalInr = subtotalInr + shippingInr;
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {

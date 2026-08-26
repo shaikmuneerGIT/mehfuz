@@ -8,8 +8,10 @@ import { resolveProductImagePath } from "./ProductImage";
 import { CartThumb, cartLineImage } from "./CartThumb";
 import { FiX, FiTrash2, FiShoppingBag, FiMinus, FiPlus, FiArrowRight } from "react-icons/fi";
 
-const SHIPPING_THRESHOLD = 999;
-const SHIPPING_FEE = 79;
+interface ShopConfig {
+  shippingFeeInr: number;
+  shippingThresholdInr: number;
+}
 
 /** Catalog tiles shown inside the drawer so shoppers can add more without leaving. */
 function AddMoreSection({ products }: { products: Product[] }) {
@@ -87,8 +89,16 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [shop, setShop] = useState<ShopConfig>({ shippingFeeInr: 79, shippingThresholdInr: 999 });
 
-  const deliveryInr = subtotalInr >= SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  useEffect(() => {
+    api.get<ShopConfig>("/config/shop").then((res) => setShop(res.data)).catch(() => {});
+  }, []);
+
+  const deliveryInr =
+    shop.shippingFeeInr === 0 || subtotalInr >= shop.shippingThresholdInr
+      ? 0
+      : shop.shippingFeeInr;
   const totalInr = subtotalInr + deliveryInr;
 
   // Fetch the catalog the first time the drawer opens.
@@ -250,7 +260,7 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             </div>
             {deliveryInr > 0 && (
               <p className="mt-1 text-[11px] text-brown-500">
-                Free delivery on orders over {formatInr(SHIPPING_THRESHOLD)}.
+                Free delivery on orders over {formatInr(shop.shippingThresholdInr)}.
               </p>
             )}
             <div className="mt-3 flex items-center justify-between border-t border-gold-500/30 pt-3">

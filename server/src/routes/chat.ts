@@ -56,7 +56,7 @@ async function catalogSnapshot(): Promise<string> {
 const SHOP_FACTS = `You are the friendly assistant on mehfuzdryfruits.in, the online store of Mehfuz Premium Dry Fruits & Commodities (Hyderabad, India; FSSAI Reg. No. 23626443000038).
 
 Facts you must answer from:
-- Delivery: FREE on orders over ₹999, otherwise flat ₹79. The team confirms delivery timing per pincode by call/WhatsApp after ordering.
+- {{DELIVERY_FACT}} The team confirms delivery timing per pincode by call/WhatsApp after ordering.
 - Payment: UPI only. After placing an order the customer sees a QR code (works with GPay/PhonePe/Paytm), pays, and enters the UPI transaction ID (UTR) on the same page. Orders are packed once payment is confirmed.
 - Order tracking: the customer can enter their order number (looks like MFZ26081234) in this chat widget's "Where is my order?" option, or WhatsApp us.
 - Contact / bulk & wholesale orders: WhatsApp or call +91 98489 18992 (also +91 98808 33944).
@@ -79,13 +79,19 @@ chatRouter.post("/", chatLimiter, async (req, res) => {
   try {
     const client = new Anthropic({ apiKey });
     const catalog = await catalogSnapshot();
+    const fee = Number(process.env.SHIPPING_FEE_INR ?? 79);
+    const threshold = Number(process.env.SHIPPING_THRESHOLD_INR ?? 999);
+    const deliveryFact =
+      fee === 0
+        ? "Delivery: FREE on all orders right now."
+        : `Delivery: FREE on orders over ₹${threshold}, otherwise flat ₹${fee}.`;
     const response = await client.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 1024,
       system: [
         {
           type: "text",
-          text: `${SHOP_FACTS}\n\nCurrent catalog:\n${catalog}`,
+          text: `${SHOP_FACTS.replace("{{DELIVERY_FACT}}", deliveryFact)}\n\nCurrent catalog:\n${catalog}`,
           cache_control: { type: "ephemeral" },
         },
       ],
