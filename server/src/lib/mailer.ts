@@ -51,41 +51,33 @@ function orderLines(order: OrderWithItems): string {
 }
 
 /**
- * Sends the customer confirmation (when they left an email) and the shop
- * alert. Deliberately fire-and-forget: an SMTP hiccup must never fail a
- * checkout that has already been committed to the database.
+ * Order confirmation for both parties. Nothing is sent while a UPI order is
+ * still awaiting payment — those emails go out from
+ * {@link sendPaymentConfirmedNotifications} once the payment is confirmed.
+ * Fire-and-forget: an SMTP hiccup must never fail a committed checkout.
  */
 export function sendOrderNotifications(order: OrderWithItems): void {
   if (!transport) return;
+
+  // An unpaid UPI order is not a confirmed order — stay silent for now.
+  if (order.paymentMethod === "UPI" && order.paymentStatus !== "PAID") return;
+
   const from = `"Mehfuz Dry Fruits" <${SMTP_USER}>`;
   const body = orderLines(order);
 
   if (order.email) {
-    const isUnpaidUpi = order.paymentMethod === "UPI" && order.paymentStatus !== "PAID";
-    const upiId = process.env.UPI_ID;
-    const payUrl = `https://mehfuzdryfruits.in/order-confirmed/${order.orderNumber}`;
     transport
       .sendMail({
         from,
         to: order.email,
-        subject: isUnpaidUpi
-          ? `Complete your payment — order ${order.orderNumber} | Mehfuz Dry Fruits`
-          : `Order confirmed — ${order.orderNumber} | Mehfuz Dry Fruits`,
+        subject: `Order confirmed — ${order.orderNumber} | Mehfuz Dry Fruits`,
         text:
           `Dear ${order.customerName},\n\n` +
-          `Thank you for shopping with Mehfuz! Your order has been placed.\n\n` +
+          `Thank you for shopping with Mehfuz! Your order is confirmed.\n\n` +
           `${body}\n\n` +
-          (isUnpaidUpi
-            ? `TO COMPLETE YOUR PAYMENT (${formatInr(order.totalInr)}):\n` +
-              `  1. Open this link to see the QR code: ${payUrl}\n` +
-              `  2. Scan it with any UPI app (GPay, PhonePe, Paytm)` +
-              (upiId ? `, or pay directly to UPI ID: ${upiId}\n` : `\n`) +
-              `  3. Put your order number ${order.orderNumber} in the payment note\n` +
-              `  4. Enter the transaction reference (UTR) on the same page\n\n` +
-              `We pack your order as soon as the payment is confirmed.\n\n`
-            : order.paymentMethod === "UPI"
-              ? `We will pack your order as soon as your UPI payment is confirmed.\n\n`
-              : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
+          (order.paymentMethod === "UPI"
+            ? `Payment received — your order is being packed.\n\n`
+            : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
           `Questions? Call or WhatsApp +91 98489 18992.\n\nMehfuz — Premium Dry Fruits & Commodities\nhttps://mehfuzdryfruits.in`,
         html: customerEmailHtml(order),
       })
@@ -103,6 +95,15 @@ export function sendOrderNotifications(order: OrderWithItems): void {
       })
       .catch((err) => console.error("Owner alert email failed:", err.message));
   }
+}
+
+/**
+ * Sent when the admin confirms a UPI payment: the customer gets the order
+ * confirmation they haven't received yet, and the shop gets its record of
+ * the now-payable order to pack.
+ */
+export function sendPaymentConfirmedNotifications(order: OrderWithItems): void {
+  sendOrderNotifications({ ...order, paymentStatus: "PAID" });
 }
 
 /**

@@ -3,7 +3,11 @@ import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { generateOrderNumber } from "../lib/orderNumber";
-import { sendOrderNotifications, sendPaymentRefNotifications } from "../lib/mailer";
+import {
+  sendOrderNotifications,
+  sendPaymentRefNotifications,
+  sendPaymentConfirmedNotifications,
+} from "../lib/mailer";
 import { requireAdmin, AuthedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errors";
 
@@ -206,10 +210,20 @@ const paymentStatusSchema = z.object({ paymentStatus: z.enum(["PAID", "UNPAID"])
 ordersRouter.patch("/:id/payment", requireAdmin, async (req: AuthedRequest, res) => {
   const parsed = paymentStatusSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid payment status" });
+
+  const before = await prisma.order.findUnique({ where: { id: req.params.id as string } });
   const order = await prisma.order.update({
     where: { id: req.params.id as string },
     data: { paymentStatus: parsed.data.paymentStatus },
+    include: { items: true },
   });
+
+  // Confirmation emails wait for the money: both parties hear from us only
+  // on the transition into PAID, never on re-marking an already-paid order.
+  if (parsed.data.paymentStatus === "PAID" && before?.paymentStatus !== "PAID") {
+    sendPaymentConfirmedNotifications(order);
+  }
+
   res.json(order);
 });
 

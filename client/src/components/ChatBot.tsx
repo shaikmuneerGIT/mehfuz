@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import type { Order, Product } from "../types";
 import { formatInr } from "../lib/format";
-import { FiX, FiSend } from "react-icons/fi";
+import { FiMessageCircle, FiX, FiSend } from "react-icons/fi";
 import { FaWhatsapp } from "react-icons/fa";
 
 interface Message {
@@ -312,15 +312,7 @@ export function ChatBot() {
         aria-label={open ? "Close chat" : "Chat with us"}
         className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-brown-950 text-gold-300 shadow-xl ring-2 ring-gold-500/60 transition hover:scale-105 hover:bg-brown-900"
       >
-        {open ? (
-          <FiX className="h-6 w-6" />
-        ) : (
-          <img
-            src="/images/logo.webp?v=3"
-            alt="Chat with Mehfuz"
-            className="h-11 w-11 object-contain"
-          />
-        )}
+        {open ? <FiX className="h-6 w-6" /> : <FiMessageCircle className="h-6 w-6" />}
       </button>
 
       {/* Chat panel */}

@@ -140,6 +140,9 @@ export function OrderConfirmed() {
   const [order, setOrder] = useState<Order | null>(null);
   const { clearCart } = useCart();
 
+  const awaitingPayment =
+    !!order && order.paymentMethod === "UPI" && order.paymentStatus !== "PAID";
+
   useEffect(() => {
     if (!orderNumber) return;
     api.get<Order>(`/orders/${orderNumber}`).then((res) => setOrder(res.data));
@@ -160,7 +163,11 @@ export function OrderConfirmed() {
         breadcrumbs={[{ label: "Order Confirmed" }]}
       />
 
-      <div className="mx-auto max-w-2xl px-4 py-12 text-center sm:px-6 font-roboto">
+      <div
+        className={`mx-auto px-4 py-12 text-center sm:px-6 font-roboto ${
+          awaitingPayment ? "max-w-5xl" : "max-w-2xl"
+        }`}
+      >
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gold-500/20 text-forest-700 shadow-md">
           <FiCheckCircle className="h-10 w-10 text-forest-700" />
         </div>
@@ -169,12 +176,13 @@ export function OrderConfirmed() {
           Your order number is <strong className="font-roboto text-gold-700">#{orderNumber}</strong>
         </p>
 
-        {order && order.paymentMethod === "UPI" && order.paymentStatus !== "PAID" && (
-          <UpiPaymentBox order={order} />
-        )}
+        {/* While payment is pending the QR sits beside the summary on desktop
+            so the customer can check what they're paying for as they pay. */}
+        <div className={awaitingPayment ? "grid gap-6 lg:grid-cols-2 lg:items-start" : ""}>
+        {order && awaitingPayment && <UpiPaymentBox order={order} />}
 
         {order && (
-          <div className="mt-8 rounded-xl border border-gold-500/30 bg-cream-50/90 p-6 text-left shadow-sm font-roboto">
+          <div className="mt-8 rounded-xl border border-gold-500/30 bg-cream-50/90 p-6 text-left shadow-sm font-roboto lg:mt-8">
             <h3 className="font-serif mb-3 text-lg font-bold text-brown-950">Order Summary</h3>
             <div className="space-y-2 text-sm font-roboto">
               {order.items.map((item) => (
@@ -214,6 +222,7 @@ export function OrderConfirmed() {
             </div>
           </div>
         )}
+        </div>
 
         {order && (
           <a

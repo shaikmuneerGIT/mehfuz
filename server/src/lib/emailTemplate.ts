@@ -116,7 +116,11 @@ export function customerEmailHtml(order: OrderWithItems): string {
         </td></tr>
       </table>`
     : order.paymentMethod === "UPI"
-      ? `<p style="margin:14px 0 0;">Your UPI payment is being confirmed — we pack your order the moment it clears. ✅</p>`
+      ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #1fa85566;border-radius:8px;margin:16px 0 0;background:#f2fbf5;">
+           <tr><td style="padding:12px 16px;font-size:13px;line-height:1.7;color:#14663a;">
+             <b>Payment received ✅</b> — we've confirmed ${formatInr(order.totalInr)} against your order. It's now being packed, and we'll share dispatch details on WhatsApp.
+           </td></tr>
+         </table>`
       : `<p style="margin:14px 0 0;">Payment: <b>Cash on Delivery</b> — please keep the amount ready when your order arrives.</p>`;
 
   return shell(
