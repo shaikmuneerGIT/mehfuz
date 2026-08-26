@@ -3,7 +3,7 @@ import { z } from "zod";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../lib/prisma";
 import { generateOrderNumber } from "../lib/orderNumber";
-import { sendOrderNotifications } from "../lib/mailer";
+import { sendOrderNotifications, sendPaymentRefNotifications } from "../lib/mailer";
 import { requireAdmin, AuthedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errors";
 
@@ -169,7 +169,10 @@ ordersRouter.get("/", requireAdmin, async (_req: AuthedRequest, res) => {
 // Customer reports the UTR / transaction reference of their UPI payment.
 // This is only a claim — the admin verifies against the bank statement and
 // marks the order paid; the reference itself never changes paymentStatus.
-const paymentRefSchema = z.object({ utr: z.string().min(6).max(40) });
+// Customers give just the last few digits of the UTR — full 12-digit IDs
+// are error-prone to copy; 4-6 trailing digits are enough to match the
+// transaction in the UPI app.
+const paymentRefSchema = z.object({ utr: z.string().min(4).max(40) });
 
 ordersRouter.post("/:orderNumber/payment-ref", checkoutLimiter, async (req, res) => {
   const parsed = paymentRefSchema.safeParse(req.body);
@@ -189,7 +192,12 @@ ordersRouter.post("/:orderNumber/payment-ref", checkoutLimiter, async (req, res)
   const updated = await prisma.order.update({
     where: { id: order.id },
     data: { paymentRef: parsed.data.utr.trim() },
+    include: { items: true },
   });
+
+  // Alert the shop (verify & mark paid) and acknowledge the customer.
+  sendPaymentRefNotifications(updated, updated.paymentRef!);
+
   res.json({ ok: true, paymentRef: updated.paymentRef });
 });
 

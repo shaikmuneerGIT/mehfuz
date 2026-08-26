@@ -130,6 +130,32 @@ export function customerEmailHtml(order: OrderWithItems): string {
   );
 }
 
+export function paymentRefOwnerHtml(order: OrderWithItems, utr: string): string {
+  return shell(
+    "Payment Reference Received",
+    `<p style="margin:0;">The customer for order <b>${order.orderNumber}</b> says they've paid and submitted a transaction reference:</p>
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${CREAM};border:2px solid ${GOLD};border-radius:8px;font-size:14px;margin:14px 0 0;">
+       <tr><td style="padding:14px 16px;line-height:1.8;">
+         <span style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:${MUTED};">Transaction ID (last digits)</span><br/>
+         <b style="font-size:17px;color:${BROWN};letter-spacing:1px;">${esc(utr)}</b><br/>
+         Amount expected: <b>${formatInr(order.totalInr)}</b> • Customer: ${esc(order.customerName)} (${esc(order.phone)})
+       </td></tr>
+     </table>
+     <p style="margin:14px 0 0;">Check PhonePe for this amount, then mark the order paid so it gets packed.</p>
+     ${goldButton(`${SITE}/admin/orders`, "Verify & Mark Paid")}`
+  );
+}
+
+export function paymentRefCustomerHtml(order: OrderWithItems, utr: string): string {
+  return shell(
+    "Payment Reference Received",
+    `<p style="margin:0 0 4px;">Dear <b>${esc(order.customerName)}</b>,</p>
+     <p style="margin:0;">We've received your transaction reference ending <b style="letter-spacing:1px;">${esc(utr)}</b> for order <b>${order.orderNumber}</b> (${formatInr(order.totalInr)}).</p>
+     <p style="margin:12px 0 0;">Our team is verifying the payment now — your order will be packed as soon as it's confirmed. You'll hear from us on WhatsApp or by call if anything else is needed.</p>
+     <p style="margin:14px 0 0;font-size:12px;color:${MUTED};">Track your order: <a href="${SITE}/order-confirmed/${order.orderNumber}" style="color:${GOLD};font-weight:bold;">${SITE}/order-confirmed/${order.orderNumber}</a></p>`
+  );
+}
+
 export function ownerEmailHtml(order: OrderWithItems): string {
   return shell(
     "New Order Received",

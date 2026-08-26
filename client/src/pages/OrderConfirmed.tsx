@@ -105,15 +105,18 @@ function UpiPaymentBox({ order }: { order: Order }) {
             <form onSubmit={submitUtr} className="space-y-2">
               <label className="block">
                 <span className="mb-1 block text-xs font-medium text-brown-800">
-                  After paying, enter the UPI transaction ID (UTR) so we can confirm faster
+                  After paying, enter the <b>last 6 digits</b> of the transaction ID (UTR)
+                  shown in your UPI app
                 </span>
                 <input
                   required
-                  minLength={6}
+                  minLength={4}
+                  maxLength={12}
+                  inputMode="numeric"
                   value={utr}
                   onChange={(e) => setUtr(e.target.value)}
                   className="input"
-                  placeholder="e.g. 425689731205"
+                  placeholder="e.g. 731205"
                 />
               </label>
               {error && <p className="text-xs text-maroon-700">{error}</p>}

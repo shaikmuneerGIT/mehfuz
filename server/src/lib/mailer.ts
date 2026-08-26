@@ -1,7 +1,12 @@
 import nodemailer from "nodemailer";
 import type { Order, OrderItem } from "@prisma/client";
 import { formatInr } from "./formatInr";
-import { customerEmailHtml, ownerEmailHtml } from "./emailTemplate";
+import {
+  customerEmailHtml,
+  ownerEmailHtml,
+  paymentRefOwnerHtml,
+  paymentRefCustomerHtml,
+} from "./emailTemplate";
 
 // Email is optional infrastructure: with SMTP env vars unset the app runs
 // exactly as before and order notifications are silently skipped.
@@ -97,5 +102,48 @@ export function sendOrderNotifications(order: OrderWithItems): void {
         html: ownerEmailHtml(order),
       })
       .catch((err) => console.error("Owner alert email failed:", err.message));
+  }
+}
+
+/**
+ * Fired when a customer submits their UPI transaction reference: alerts the
+ * shop (actionable — verify and mark paid) and acknowledges the customer.
+ * Fire-and-forget like all order mail.
+ */
+export function sendPaymentRefNotifications(order: OrderWithItems, utr: string): void {
+  if (!transport) return;
+  const from = `"Mehfuz Dry Fruits" <${SMTP_USER}>`;
+
+  if (NOTIFY_EMAIL) {
+    transport
+      .sendMail({
+        from,
+        to: NOTIFY_EMAIL,
+        subject: `Payment reference for ${order.orderNumber} — UTR ending ${utr} (${formatInr(order.totalInr)})`,
+        text:
+          `The customer for order ${order.orderNumber} submitted the last digits of their UPI transaction ID.\n\n` +
+          `UTR: ${utr}\nAmount expected: ${formatInr(order.totalInr)}\n` +
+          `Customer: ${order.customerName} (${order.phone})\n\n` +
+          `Check PhonePe for this amount, then mark the order paid: https://mehfuzdryfruits.in/admin/orders`,
+        html: paymentRefOwnerHtml(order, utr),
+      })
+      .catch((err) => console.error("Payment-ref owner email failed:", err.message));
+  }
+
+  if (order.email) {
+    transport
+      .sendMail({
+        from,
+        to: order.email,
+        subject: `Payment reference received — ${order.orderNumber} | Mehfuz Dry Fruits`,
+        text:
+          `Dear ${order.customerName},\n\n` +
+          `We've received your payment reference ${utr} for order ${order.orderNumber} (${formatInr(order.totalInr)}).\n` +
+          `Our team is verifying the payment now — your order will be packed as soon as it's confirmed.\n\n` +
+          `Track your order: https://mehfuzdryfruits.in/order-confirmed/${order.orderNumber}\n\n` +
+          `Mehfuz — Premium Dry Fruits & Commodities`,
+        html: paymentRefCustomerHtml(order, utr),
+      })
+      .catch((err) => console.error("Payment-ref customer email failed:", err.message));
   }
 }
