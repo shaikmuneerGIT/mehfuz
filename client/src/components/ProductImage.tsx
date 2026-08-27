@@ -20,7 +20,7 @@ export function resolveProductImagePath(name: string, categorySlug?: string): st
   // Nuts
   if (n.includes("almond") || n.includes("badam")) return "/products/almonds.webp?v=3";
   if (n.includes("walnut") || n.includes("akhrot")) return "/products/walnut.webp?v=3";
-  if (n.includes("cashew") || n.includes("kaju")) return "/products/cashews.webp?v=3";
+  if (n.includes("cashew") || n.includes("kaju")) return "/products/cashews.webp?v=4";
   if (n.includes("pista") || n.includes("pistachio")) return "/products/pistachios.webp?v=3";
 
   // Raisins
@@ -31,10 +31,11 @@ export function resolveProductImagePath(name: string, categorySlug?: string): st
   if (n.includes("apricot")) return "/products/apricot.webp?v=3";
   if (n.includes("black berry") || n.includes("blackberry") || n.includes("plum")) return "/products/blackberry_plum.webp?v=3";
   if (n.includes("blueberry")) return "/products/blueberry.webp?v=3";
-  if (n.includes("kiwi")) return "/products/dry_kiwi_green.webp?v=3";
+  if (n.includes("kiwi")) return "/products/dry_kiwi_green.webp?v=4";
   if (n.includes("amla")) return "/products/dry_sweet_amla.webp?v=3";
   if (n.includes("makhana")) return "/products/phool_makhana.webp?v=3";
   if (n.includes("chilli") || n.includes("chili") || n.includes("mirchi")) return "/products/red_chilli_powder.webp?v=3";
+  if (n.includes("pepper") || n.includes("miriyalu")) return "/products/black_pepper.webp?v=4";
   if (n.includes("coffee") || n.includes("kaapi")) return "/products/coffee.webp?v=4";
   if (n.includes("honey")) return "/products/orgonic_wild_coorg_honey.webp?v=3";
   if (n.includes("sunflower")) return "/products/sunflower_seeds.webp?v=3";
@@ -56,10 +57,10 @@ export function resolveProductImagePath(name: string, categorySlug?: string): st
   if (categorySlug === "seeds") return "/products/pumpkin_seeds.webp?v=3";
   if (categorySlug === "saffron-kesar") return "/products/saffron.webp?v=3";
   if (categorySlug === "coffee") return "/products/coffee.webp?v=4";
-  // Black pepper has no photo yet — keep its illustration rather than
-  // showing the chilli powder that represents the spices category.
   if (categorySlug === "spices") {
-    return n.includes("pepper") ? null : "/products/red_chilli_powder.webp?v=3";
+    return n.includes("pepper")
+      ? "/products/black_pepper.webp?v=4"
+      : "/products/red_chilli_powder.webp?v=3";
   }
 
   return null;
