@@ -2,15 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { Product } from "../types";
 import { formatInr } from "../lib/format";
+import { useCart } from "../context/CartContext";
 import { ProductImage } from "./ProductImage";
-import { FiChevronDown, FiCheck } from "react-icons/fi";
+import { FiChevronDown, FiCheck, FiShoppingBag } from "react-icons/fi";
 
 export function ProductCard({ product }: { product: Product }) {
   // Variants arrive sorted by price ascending, so the first one is the
   // smallest pack (250g for most products) — the default selection.
   const [variantId, setVariantId] = useState(product.variants[0]?.id ?? "");
   const [open, setOpen] = useState(false);
+  const [added, setAdded] = useState(false);
   const dropdownRef = useRef<HTMLSpanElement>(null);
+  const { addLine } = useCart();
   const selected = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
 
   // Close the pack-size dropdown when clicking anywhere outside it.
@@ -26,6 +29,25 @@ export function ProductCard({ product }: { product: Product }) {
   }, [open]);
 
   const soldOut = product.variants.every((v) => v.stock === 0);
+
+  /** Adds the selected pack straight from the card — no page visit needed. */
+  function addSelectedToCart() {
+    if (!selected || selected.stock === 0) return;
+    addLine({
+      productId: product.id,
+      productName: product.name,
+      productSlug: product.slug,
+      categoryName: product.category.name,
+      imageUrl: product.imageUrl,
+      variantId: selected.id,
+      variantLabel: selected.label,
+      priceInr: selected.priceInr,
+      quantity: 1,
+      maxStock: selected.stock,
+    });
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1600);
+  }
 
   return (
     <Link
@@ -134,6 +156,36 @@ export function ProductCard({ product }: { product: Product }) {
             {formatInr(selected.priceInr)}
           </p>
         )}
+
+        {/* Buy straight from the card; the surrounding Link must not fire. */}
+        <button
+          type="button"
+          disabled={!selected || selected.stock === 0}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            addSelectedToCart();
+          }}
+          className={`mt-2 inline-flex w-36 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
+            added
+              ? "bg-forest-950 text-gold-300"
+              : "metallic-gold-btn hover:brightness-105"
+          }`}
+        >
+          {added ? (
+            <>
+              <FiCheck className="h-3.5 w-3.5" />
+              Added
+            </>
+          ) : selected && selected.stock === 0 ? (
+            "Out of stock"
+          ) : (
+            <>
+              <FiShoppingBag className="h-3.5 w-3.5" />
+              Add to Cart
+            </>
+          )}
+        </button>
       </div>
     </Link>
   );
