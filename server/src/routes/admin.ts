@@ -298,6 +298,35 @@ adminRouter.post("/stock-receipts", async (req, res) => {
   });
 });
 
+// Deleting a receipt also takes back the stock it added, so inventory keeps
+// matching the deliveries actually recorded. Stock is floored at zero — units
+// already sold can't be un-sold.
+adminRouter.delete("/stock-receipts/:id", async (req, res) => {
+  const receipt = await prisma.stockReceipt.findUnique({
+    where: { id: req.params.id as string },
+    include: { items: true },
+  });
+  if (!receipt) return res.status(404).json({ error: "Stock entry not found" });
+
+  const variants = await prisma.variant.findMany({
+    where: { id: { in: receipt.items.map((i) => i.variantId) } },
+    select: { id: true, stock: true },
+  });
+  const stockById = new Map(variants.map((v) => [v.id, v.stock]));
+
+  await prisma.$transaction([
+    ...receipt.items.map((i) =>
+      prisma.variant.update({
+        where: { id: i.variantId },
+        data: { stock: Math.max(0, (stockById.get(i.variantId) ?? 0) - i.quantity) },
+      })
+    ),
+    prisma.stockReceipt.delete({ where: { id: receipt.id } }),
+  ]);
+
+  res.status(204).send();
+});
+
 adminRouter.get("/stock-receipts", async (_req, res) => {
   const receipts = await prisma.stockReceipt.findMany({
     include: { product: true, items: true },

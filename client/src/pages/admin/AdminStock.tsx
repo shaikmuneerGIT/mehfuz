@@ -24,6 +24,23 @@ export function AdminStock() {
 
   useEffect(load, []);
 
+  async function removeReceipt(id: string, productName: string) {
+    if (
+      !confirm(
+        `Delete this stock entry for ${productName}?
+
+The units it added will be removed from stock again, and its cost will no longer count towards profit.`
+      )
+    )
+      return;
+    try {
+      await api.delete(`/admin/stock-receipts/${id}`);
+      load();
+    } catch {
+      alert("Could not delete this stock entry.");
+    }
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-center justify-between">
@@ -78,6 +95,12 @@ export function AdminStock() {
                   <div className="font-display font-bold text-brown-950">
                     {formatInr(r.totalCostInr)}
                   </div>
+                  <button
+                    onClick={() => removeReceipt(r.id, r.productName)}
+                    className="mt-1 text-xs font-semibold text-maroon-700 hover:underline"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
               <ul className="mt-3 flex flex-wrap gap-2 border-t border-gold-500/20 pt-3 text-sm">
