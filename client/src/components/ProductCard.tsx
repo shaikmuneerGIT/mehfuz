@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
 import type { Product } from "../types";
 import { formatInr } from "../lib/format";
 import { useCart } from "../context/CartContext";
@@ -50,11 +49,10 @@ export function ProductCard({ product }: { product: Product }) {
   }
 
   return (
-    <Link
-      to={`/product/${product.slug}`}
-      // The card lifts above its siblings while the pack dropdown is open —
-      // the hover transform creates a stacking context, so without this the
-      // open panel is painted under the next card in the grid.
+    // Self-contained card: pick a pack and add to cart without leaving the
+    // page. Lifts above its siblings while the dropdown is open, since the
+    // hover transform creates a stacking context.
+    <div
       className={`group relative flex flex-col items-center text-center font-roboto transition-transform duration-300 hover:-translate-y-1 py-3 ${
         open ? "z-30" : ""
       }`}
@@ -81,17 +79,13 @@ export function ProductCard({ product }: { product: Product }) {
         <span className="text-xs font-bold uppercase tracking-widest text-forest-800 font-roboto">
           {product.category.name}
         </span>
-        <h3 className="font-serif text-lg sm:text-xl font-bold leading-snug text-brown-950 group-hover:text-gold-700 transition-colors">
+        <h3 className="font-serif text-lg sm:text-xl font-bold leading-snug text-brown-950 transition-colors">
           {product.name}
         </h3>
         {product.variants.length > 1 && selected && (
           <span
             ref={dropdownRef}
             className="relative mt-1 inline-block w-36"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-            }}
           >
             <button
               type="button"
@@ -157,15 +151,11 @@ export function ProductCard({ product }: { product: Product }) {
           </p>
         )}
 
-        {/* Buy straight from the card; the surrounding Link must not fire. */}
+        {/* Buy straight from the card. */}
         <button
           type="button"
           disabled={!selected || selected.stock === 0}
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            addSelectedToCart();
-          }}
+          onClick={addSelectedToCart}
           className={`mt-2 inline-flex w-36 items-center justify-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold shadow-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
             added
               ? "bg-forest-950 text-gold-300"
@@ -187,6 +177,6 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </button>
       </div>
-    </Link>
+    </div>
   );
 }
