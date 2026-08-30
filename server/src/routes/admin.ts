@@ -4,6 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../middleware/auth";
+import { applyAdjustments, reconcileStock } from "../lib/stock";
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
@@ -146,7 +147,24 @@ adminRouter.put("/products/:id", async (req, res) => {
     ).map((oi) => oi.variantId)
   );
 
+  // Editing a pack's stock on the product form is a hand correction like any
+  // other, so it is recorded — otherwise it would silently break the stock
+  // page's arithmetic.
+  const stockBefore = new Map(existing.variants.map((v) => [v.id, v.stock]));
+  const stockAdjustments = variants
+    .filter((v) => v.id && stockBefore.has(v.id) && v.stock !== stockBefore.get(v.id))
+    .map((v) =>
+      prisma.stockAdjustment.create({
+        data: {
+          variantId: v.id as string,
+          quantity: v.stock - (stockBefore.get(v.id as string) ?? 0),
+          reason: "changed on the product form",
+        },
+      })
+    );
+
   await prisma.$transaction([
+    ...stockAdjustments,
     ...removed.map((v) =>
       orderedVariantIds.has(v.id)
         ? prisma.variant.update({ where: { id: v.id }, data: { isActive: false } })
@@ -306,26 +324,17 @@ adminRouter.post("/stock-receipts", async (req, res) => {
  * edits on the product form.
  */
 adminRouter.get("/stock-overview", async (_req, res) => {
-  const [variants, receivedRows, soldRows] = await Promise.all([
+  const [variants, recon] = await Promise.all([
     prisma.variant.findMany({
       where: { isActive: true },
       include: { product: { select: { name: true, isActive: true } } },
     }),
-    prisma.stockReceiptItem.groupBy({ by: ["variantId"], _sum: { quantity: true } }),
-    prisma.orderItem.groupBy({
-      by: ["variantId"],
-      _sum: { quantity: true },
-      where: { order: { status: { not: "CANCELLED" } } },
-    }),
+    reconcileStock(),
   ]);
-
-  const received = new Map(receivedRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
-  const sold = new Map(soldRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
 
   const rows = variants
     .map((v) => {
-      const rec = received.get(v.id) ?? 0;
-      const sld = sold.get(v.id) ?? 0;
+      const r = recon.get(v.id);
       return {
         variantId: v.id,
         productName: v.product.name,
@@ -333,10 +342,11 @@ adminRouter.get("/stock-overview", async (_req, res) => {
         label: v.label,
         priceInr: v.priceInr,
         stock: v.stock,
-        received: rec,
-        sold: sld,
-        // What the stock would be from recorded movements alone.
-        opening: v.stock - rec + sld,
+        received: r?.received ?? 0,
+        sold: r?.sold ?? 0,
+        adjusted: r?.adjusted ?? 0,
+        expected: r?.expected ?? 0,
+        reconciles: r?.reconciles ?? true,
         stockValueInr: v.stock * v.priceInr,
       };
     })
@@ -349,9 +359,12 @@ adminRouter.get("/stock-overview", async (_req, res) => {
       unitsInStock: rows.reduce((s, r) => s + r.stock, 0),
       unitsSold: rows.reduce((s, r) => s + r.sold, 0),
       unitsReceived: rows.reduce((s, r) => s + r.received, 0),
+      unitsAdjusted: rows.reduce((s, r) => s + r.adjusted, 0),
       stockValueInr: rows.reduce((s, r) => s + r.stockValueInr, 0),
       outOfStock: rows.filter((r) => r.stock === 0).length,
       lowStock: rows.filter((r) => r.stock > 0 && r.stock <= LOW_STOCK_THRESHOLD).length,
+      // Packs whose stock can't be explained by received + adjusted - sold.
+      notReconciled: rows.filter((r) => !r.reconciles).length,
     },
   });
 });
@@ -380,18 +393,47 @@ adminRouter.put("/stock-counts", async (req, res) => {
   // Ignore ids that no longer exist rather than failing the whole save.
   const known = await prisma.variant.findMany({
     where: { id: { in: parsed.data.counts.map((c) => c.variantId) } },
-    select: { id: true },
+    select: { id: true, stock: true },
   });
-  const knownIds = new Set(known.map((v) => v.id));
-  const updates = parsed.data.counts.filter((c) => knownIds.has(c.variantId));
+  const stockById = new Map(known.map((v) => [v.id, v.stock]));
+  const updates = parsed.data.counts.filter((c) => stockById.has(c.variantId));
 
-  await prisma.$transaction(
-    updates.map((c) =>
-      prisma.variant.update({ where: { id: c.variantId }, data: { stock: c.stock } })
-    )
+  // A counted number is not explained by deliveries or sales, so the
+  // difference is recorded as an adjustment — otherwise the stock page's
+  // arithmetic would stop adding up the moment anyone corrected a count.
+  const ops = await applyAdjustments(
+    updates.map((c) => ({
+      variantId: c.variantId,
+      delta: c.stock - (stockById.get(c.variantId) ?? 0),
+      reason: "counted by hand",
+    }))
   );
+  await prisma.$transaction(ops as never[]);
 
   res.json({ updated: updates.length });
+});
+
+/**
+ * Force the arithmetic to close for every pack: whatever stock cannot be
+ * explained by deliveries minus sales is written down as one adjustment, so
+ * the stock page stops showing differences it can't account for.
+ */
+adminRouter.post("/stock-reconcile", async (_req, res) => {
+  const recon = await reconcileStock();
+  const drifting = [...recon.values()].filter((r) => !r.reconciles);
+
+  const ops = drifting.map((r) =>
+    prisma.stockAdjustment.create({
+      data: {
+        variantId: r.variantId,
+        quantity: r.stock - r.expected,
+        reason: "opening stock (before deliveries were recorded)",
+      },
+    })
+  );
+  await prisma.$transaction(ops);
+
+  res.json({ reconciled: drifting.length, packs: recon.size });
 });
 
 // Deleting a receipt also takes back the stock it added, so inventory keeps
@@ -410,6 +452,25 @@ adminRouter.delete("/stock-receipts/:id", async (req, res) => {
   });
   const stockById = new Map(variants.map((v) => [v.id, v.stock]));
 
+  // Removing the delivery drops it out of `received`, so stock comes down by
+  // the same amount and the arithmetic stays balanced. Only what the zero
+  // floor swallows needs recording.
+  const shortfalls = receipt.items
+    .map((i) => ({
+      variantId: i.variantId,
+      lost: Math.max(0, i.quantity - (stockById.get(i.variantId) ?? 0)),
+    }))
+    .filter((s) => s.lost > 0)
+    .map((s) =>
+      prisma.stockAdjustment.create({
+        data: {
+          variantId: s.variantId,
+          quantity: s.lost,
+          reason: "delivery removed (stock could not go below zero)",
+        },
+      })
+    );
+
   await prisma.$transaction([
     ...receipt.items.map((i) =>
       prisma.variant.update({
@@ -417,6 +478,7 @@ adminRouter.delete("/stock-receipts/:id", async (req, res) => {
         data: { stock: Math.max(0, (stockById.get(i.variantId) ?? 0) - i.quantity) },
       })
     ),
+    ...shortfalls,
     prisma.stockReceipt.delete({ where: { id: receipt.id } }),
   ]);
 

@@ -10,6 +10,7 @@ import {
 } from "../lib/mailer";
 import { requireAdmin, AuthedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errors";
+import { applySaleMoves } from "../lib/stock";
 
 export const ordersRouter = Router();
 
@@ -348,27 +349,16 @@ ordersRouter.put("/:id/items", requireAdmin, async (req: AuthedRequest, res) => 
   const shippingInr = parsed.data.shippingInr ?? order.shippingInr;
 
   // Every variant that moves either way: the ones added and the ones dropped.
+  // Selling more takes stock off the shelf, selling less puts it back — `sold`
+  // moves by the same amount, so no adjustment is needed to keep it balanced.
   const touched = new Set([...wanted.keys(), ...stockCounts.keys()]);
-  const stockNow = await prisma.variant.findMany({
-    where: { id: { in: [...touched] } },
-    select: { id: true, stock: true },
-  });
-  const stockById = new Map(stockNow.map((v) => [v.id, v.stock]));
-
-  const stockUpdates = [...touched]
-    .map((variantId) => {
-      const delta = (wanted.get(variantId) ?? 0) - (stockCounts.get(variantId) ?? 0);
-      return { variantId, delta };
-    })
-    .filter((u) => u.delta !== 0)
-    .map((u) =>
-      prisma.variant.update({
-        where: { id: u.variantId },
-        // Floored at zero: stock can be behind reality, and an edit to an
-        // order must never be blocked by a count that was never taken.
-        data: { stock: Math.max(0, (stockById.get(u.variantId) ?? 0) - u.delta) },
-      })
-    );
+  const moveOps = await applySaleMoves(
+    [...touched].map((variantId) => ({
+      variantId,
+      delta: (stockCounts.get(variantId) ?? 0) - (wanted.get(variantId) ?? 0),
+      reason: `order ${order.orderNumber} edited`,
+    }))
+  );
 
   const [, , updated] = await prisma.$transaction([
     prisma.orderItem.deleteMany({ where: { orderId: order.id } }),
@@ -378,7 +368,7 @@ ordersRouter.put("/:id/items", requireAdmin, async (req: AuthedRequest, res) => 
       data: { subtotalInr, shippingInr, totalInr: subtotalInr + shippingInr },
       include: { items: true },
     }),
-    ...stockUpdates,
+    ...(moveOps as never[]),
   ]);
 
   res.json(updated);
@@ -386,9 +376,28 @@ ordersRouter.put("/:id/items", requireAdmin, async (req: AuthedRequest, res) => 
 
 // Hard-delete an order (admin) — for test orders and junk. Items cascade.
 ordersRouter.delete("/:id", requireAdmin, async (req: AuthedRequest, res) => {
-  const order = await prisma.order.findUnique({ where: { id: req.params.id as string } });
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id as string },
+    include: { items: true },
+  });
   if (!order) return res.status(404).json({ error: "Order not found" });
+
+  // Deleting removes the order from the sold figures, so its packs return to
+  // stock — unless it was cancelled, which already gave them back.
+  const saleMoves =
+    order.status === "CANCELLED"
+      ? []
+      : order.items.map((i) => ({
+          variantId: i.variantId,
+          delta: i.quantity,
+          reason: `order ${order.orderNumber} deleted`,
+        }));
+  const moveOps = await applySaleMoves(saleMoves);
+
   await prisma.order.delete({ where: { id: order.id } });
+  for (const op of moveOps) {
+    await (op as Promise<unknown>);
+  }
   res.status(204).send();
 });
 
@@ -401,9 +410,34 @@ ordersRouter.patch("/:id/status", requireAdmin, async (req: AuthedRequest, res) 
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid status" });
   }
+  const before = await prisma.order.findUnique({
+    where: { id: req.params.id as string },
+    include: { items: true },
+  });
+  if (!before) return res.status(404).json({ error: "Order not found" });
+
+  // Cancelling drops the order out of the sold figures, so its packs have to
+  // go back on the shelf or the stock arithmetic stops adding up. Reviving a
+  // cancelled order takes them off again.
+  const wasCancelled = before.status === "CANCELLED";
+  const nowCancelled = parsed.data.status === "CANCELLED";
+  const saleMoves =
+    wasCancelled === nowCancelled
+      ? []
+      : before.items.map((i) => ({
+          variantId: i.variantId,
+          delta: nowCancelled ? i.quantity : -i.quantity,
+          reason: nowCancelled
+            ? `order ${before.orderNumber} cancelled`
+            : `order ${before.orderNumber} reopened`,
+        }));
+
   const order = await prisma.order.update({
     where: { id: req.params.id as string },
     data: { status: parsed.data.status },
   });
+  for (const op of await applySaleMoves(saleMoves)) {
+    await (op as Promise<unknown>);
+  }
   res.json(order);
 });

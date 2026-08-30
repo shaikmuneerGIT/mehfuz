@@ -12,7 +12,9 @@ interface StockRow {
   stock: number;
   received: number;
   sold: number;
-  opening: number;
+  adjusted: number;
+  expected: number;
+  reconciles: boolean;
   stockValueInr: number;
 }
 
@@ -23,9 +25,11 @@ interface StockOverview {
     unitsInStock: number;
     unitsSold: number;
     unitsReceived: number;
+    unitsAdjusted: number;
     stockValueInr: number;
     outOfStock: number;
     lowStock: number;
+    notReconciled: number;
   };
 }
 
@@ -43,6 +47,20 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   const [error, setError] = useState<string | null>(null);
   const [fillScope, setFillScope] = useState("ZEROS");
   const [fillValue, setFillValue] = useState("");
+  const [reconciling, setReconciling] = useState(false);
+
+  async function reconcile() {
+    setReconciling(true);
+    setError(null);
+    try {
+      await api.post("/admin/stock-reconcile");
+      onSaved();
+    } catch {
+      setError("Could not balance the stock figures.");
+    } finally {
+      setReconciling(false);
+    }
+  }
 
   // A row's live value is whatever is typed, falling back to the saved count.
   function liveStock(r: StockRow): number {
@@ -169,6 +187,32 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         )}
       </div>
 
+      {data.totals.notReconciled > 0 ? (
+        <div className="mb-3 rounded-xl border border-maroon-700/40 bg-maroon-700/5 px-4 py-3">
+          <div className="text-sm font-semibold text-maroon-700">
+            {data.totals.notReconciled} pack
+            {data.totals.notReconciled > 1 ? "s don’t" : " doesn’t"} add up
+          </div>
+          <p className="mt-1 text-xs text-brown-700">
+            Stock should always equal <b>received + adjusted − sold</b>. These packs hold
+            stock that no delivery, sale or correction explains — usually stock that was
+            already on the shelf before you started recording deliveries.
+          </p>
+          <button
+            onClick={reconcile}
+            disabled={reconciling}
+            className="mt-2 rounded-full bg-brown-950 px-4 py-1.5 text-xs font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
+          >
+            {reconciling ? "Balancing…" : "Record it as opening stock and balance"}
+          </button>
+        </div>
+      ) : (
+        <div className="mb-3 rounded-xl border border-forest-950/25 bg-forest-950/5 px-4 py-2 text-sm font-semibold text-forest-950">
+          ✓ Every pack adds up — stock matches received + adjusted − sold, on all{" "}
+          {data.totals.packs} packs.
+        </div>
+      )}
+
       <div className="mb-3 rounded-xl border border-gold-500/30 bg-cream-50 px-4 py-3">
         <div className="text-sm font-semibold text-brown-900">
           Showing zero? Type the real number in the “In stock” box.
@@ -257,6 +301,9 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
               <th className="px-3 py-2 text-right font-medium">In stock</th>
               <th className="px-3 py-2 text-right font-medium">Sold</th>
               <th className="px-3 py-2 text-right font-medium">Received</th>
+              <th className="px-3 py-2 text-right font-medium" title="Hand corrections">
+                Adjusted
+              </th>
               <th className="px-3 py-2 text-right font-medium">Value</th>
             </tr>
           </thead>
@@ -297,6 +344,27 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                   </td>
                   <td className="px-3 py-2 text-right text-brown-700">{r.sold}</td>
                   <td className="px-3 py-2 text-right text-brown-700">{r.received}</td>
+                  <td className="px-3 py-2 text-right text-brown-700">
+                    {r.adjusted === 0 ? (
+                      "—"
+                    ) : (
+                      <span title="Hand corrections and stock-takes">
+                        {r.adjusted > 0 ? `+${r.adjusted}` : r.adjusted}
+                      </span>
+                    )}
+                    {!r.reconciles && !changed && (
+                      <span
+                        title={`Doesn't add up: ${r.received} received ${
+                          r.adjusted >= 0 ? "+" : "−"
+                        } ${Math.abs(r.adjusted)} adjusted − ${r.sold} sold = ${
+                          r.expected
+                        }, but stock says ${r.stock}`}
+                        className="ml-1 font-bold text-maroon-700"
+                      >
+                        !
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-right text-brown-900">
                     {formatInr(value * r.priceInr)}
                   </td>
@@ -305,7 +373,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-brown-500">
+                <td colSpan={7} className="px-4 py-6 text-center text-brown-500">
                   No pack matches “{query}”.
                 </td>
               </tr>

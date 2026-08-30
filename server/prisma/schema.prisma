@@ -51,6 +51,22 @@ model Variant {
   isActive          Boolean            @default(true)
   orderItems        OrderItem[]
   stockReceiptItems StockReceiptItem[]
+  stockAdjustments  StockAdjustment[]
+}
+
+/**
+ * Every change to stock that is neither a recorded delivery nor a sale: a
+ * physical stock-take, a correction, spoilage. Without this the arithmetic
+ * on the stock page cannot close — stock would silently drift from
+ * (received + adjustments - sold) with nothing to explain the difference.
+ */
+model StockAdjustment {
+  id        String   @id @default(cuid())
+  variantId String
+  variant   Variant  @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  quantity  Int
+  reason    String
+  createdAt DateTime @default(now())
 }
 
 model Order {
