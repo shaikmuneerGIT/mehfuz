@@ -3,21 +3,173 @@ import { api } from "../../api/client";
 import type { Product, StockReceipt } from "../../types";
 import { formatInr } from "../../lib/format";
 
+interface StockRow {
+  variantId: string;
+  productName: string;
+  productActive: boolean;
+  label: string;
+  priceInr: number;
+  stock: number;
+  received: number;
+  sold: number;
+  opening: number;
+  stockValueInr: number;
+}
+
+interface StockOverview {
+  rows: StockRow[];
+  totals: {
+    packs: number;
+    unitsInStock: number;
+    unitsSold: number;
+    unitsReceived: number;
+    stockValueInr: number;
+    outOfStock: number;
+    lowStock: number;
+  };
+}
+
+/** Current stock for every pack, reconciled against deliveries and orders. */
+function StockOverviewTable({ data }: { data: StockOverview }) {
+  const [showAll, setShowAll] = useState(false);
+  const rows = showAll ? data.rows : data.rows.slice(0, 12);
+
+  return (
+    <div className="mb-8">
+      <div className="mb-3 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-gold-500/30 bg-white px-5 py-3">
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+            Units in stock
+          </div>
+          <div className="font-display text-lg font-bold text-brown-950">
+            {data.totals.unitsInStock}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+            Units sold
+          </div>
+          <div className="font-display text-lg font-bold text-brown-950">
+            {data.totals.unitsSold}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+            Units received
+          </div>
+          <div className="font-display text-lg font-bold text-brown-950">
+            {data.totals.unitsReceived}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+            Stock value
+          </div>
+          <div className="font-display text-lg font-bold text-brown-950">
+            {formatInr(data.totals.stockValueInr)}
+          </div>
+        </div>
+        {data.totals.outOfStock > 0 && (
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+              Out of stock
+            </div>
+            <div className="font-display text-lg font-bold text-maroon-700">
+              {data.totals.outOfStock}
+            </div>
+          </div>
+        )}
+        {data.totals.lowStock > 0 && (
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+              Low stock
+            </div>
+            <div className="font-display text-lg font-bold text-gold-700">
+              {data.totals.lowStock}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-gold-500/30 bg-white">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gold-500/30 bg-cream-50 text-xs uppercase tracking-wide text-brown-500">
+              <th className="px-4 py-2 text-left font-medium">Product</th>
+              <th className="px-3 py-2 text-left font-medium">Pack</th>
+              <th className="px-3 py-2 text-right font-medium">In stock</th>
+              <th className="px-3 py-2 text-right font-medium">Sold</th>
+              <th className="px-3 py-2 text-right font-medium">Received</th>
+              <th className="px-3 py-2 text-right font-medium">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.variantId} className="border-b border-gold-500/15 last:border-0">
+                <td className="px-4 py-2 text-brown-900">
+                  {r.productName}
+                  {!r.productActive && (
+                    <span className="ml-2 text-xs text-brown-500">(hidden)</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-brown-700">{r.label}</td>
+                <td className="px-3 py-2 text-right">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+                      r.stock === 0
+                        ? "bg-maroon-700 text-white"
+                        : r.stock <= 5
+                          ? "bg-maroon-700/10 text-maroon-700"
+                          : "text-brown-900"
+                    }`}
+                  >
+                    {r.stock}
+                  </span>
+                </td>
+                <td className="px-3 py-2 text-right text-brown-700">{r.sold}</td>
+                <td className="px-3 py-2 text-right text-brown-700">{r.received}</td>
+                <td className="px-3 py-2 text-right text-brown-900">
+                  {formatInr(r.stockValueInr)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {data.rows.length > 12 && (
+        <button
+          onClick={() => setShowAll((v) => !v)}
+          className="mt-2 text-xs font-semibold text-gold-700 hover:underline"
+        >
+          {showAll ? "Show fewer" : `Show all ${data.rows.length} packs`}
+        </button>
+      )}
+      <p className="mt-2 text-xs text-brown-500">
+        Sold counts every pack in non-cancelled orders. Received counts deliveries entered
+        below. Stock updates automatically on each sale and delivery.
+      </p>
+    </div>
+  );
+}
+
 export function AdminStock() {
   const [receipts, setReceipts] = useState<StockReceipt[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [overview, setOverview] = useState<StockOverview | null>(null);
 
   function load() {
     setLoading(true);
     Promise.all([
       api.get<StockReceipt[]>("/admin/stock-receipts"),
       api.get<Product[]>("/admin/products"),
+      api.get<StockOverview>("/admin/stock-overview"),
     ])
-      .then(([receiptsRes, productsRes]) => {
+      .then(([receiptsRes, productsRes, overviewRes]) => {
         setReceipts(receiptsRes.data);
         setProducts(productsRes.data);
+        setOverview(overviewRes.data);
       })
       .finally(() => setLoading(false));
   }
@@ -43,9 +195,13 @@ The units it added will be removed from stock again, and its cost will no longer
 
   return (
     <div>
+      <h1 className="font-display mb-4 text-2xl font-bold text-brown-950">Stock</h1>
+
+      {overview && <StockOverviewTable data={overview} />}
+
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-bold text-brown-950">Stock Received</h1>
+          <h2 className="font-display text-xl font-bold text-brown-950">Stock Received</h2>
           <p className="mt-1 text-sm text-brown-500">
             Record deliveries from suppliers — this adds straight to sellable stock and tracks
             what you paid, so the dashboard can show real profit.

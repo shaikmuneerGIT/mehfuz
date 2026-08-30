@@ -164,6 +164,25 @@ export async function generateInvoicePdf(order: OrderWithItems): Promise<Buffer>
           width: 80,
           align: "right",
         });
+      // Any admin adjustment to the total shows as its own line so the
+      // arithmetic on the invoice always adds up.
+      const adjustment = order.subtotalInr + order.shippingInr - order.totalInr;
+      if (adjustment !== 0) {
+        y += 16;
+        doc.fillColor(MUTED).text(adjustment > 0 ? "Discount" : "Adjustment", labelX, y, {
+          width: 130,
+          align: "right",
+        });
+        doc
+          .fillColor("#33261a")
+          .text(
+            adjustment > 0 ? `- ${money(adjustment)}` : money(-adjustment),
+            valueX,
+            y,
+            { width: 80, align: "right" }
+          );
+      }
+
       y += 20;
       doc.rect(labelX - 10, y - 5, right - labelX + 10, 26).fill("#faf6e8");
       doc.fillColor(BROWN).font("Helvetica-Bold").fontSize(12);

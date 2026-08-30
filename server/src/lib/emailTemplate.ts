@@ -73,6 +73,20 @@ function itemsTable(order: OrderWithItems): string {
       <td colspan="3" align="right" style="padding:2px 10px;color:${MUTED};">Shipping</td>
       <td align="right" style="padding:2px 10px;white-space:nowrap;">${order.shippingInr === 0 ? "FREE" : formatInr(order.shippingInr)}</td>
     </tr>
+    ${
+      order.subtotalInr + order.shippingInr - order.totalInr !== 0
+        ? `<tr>
+      <td colspan="3" align="right" style="padding:2px 10px;color:${MUTED};">${
+        order.subtotalInr + order.shippingInr - order.totalInr > 0 ? "Discount" : "Adjustment"
+      }</td>
+      <td align="right" style="padding:2px 10px;white-space:nowrap;">${
+        order.subtotalInr + order.shippingInr - order.totalInr > 0
+          ? `- ${formatInr(order.subtotalInr + order.shippingInr - order.totalInr)}`
+          : formatInr(order.totalInr - order.subtotalInr - order.shippingInr)
+      }</td>
+    </tr>`
+        : ""
+    }
     <tr>
       <td colspan="3" align="right" style="padding:6px 10px 12px;font-weight:bold;color:${BROWN};font-size:15px;">Total</td>
       <td align="right" style="padding:6px 10px 12px;font-weight:bold;color:${BROWN};font-size:15px;white-space:nowrap;">${formatInr(order.totalInr)}</td>

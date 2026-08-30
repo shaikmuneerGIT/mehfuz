@@ -19,6 +19,8 @@ export function AdminOrders() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [editingAmount, setEditingAmount] = useState<string | null>(null);
+  const [amountDraft, setAmountDraft] = useState("");
 
   function load() {
     setLoading(true);
@@ -33,6 +35,14 @@ export function AdminOrders() {
   async function updateStatus(orderId: string, status: string) {
     await api.patch(`/orders/${orderId}/status`, { status });
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+  }
+
+  async function saveAmount(orderId: string) {
+    const value = Number(amountDraft);
+    if (!Number.isFinite(value) || value < 0) return;
+    const res = await api.patch<Order>(`/orders/${orderId}/amount`, { totalInr: value });
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, ...res.data } : o)));
+    setEditingAmount(null);
   }
 
   async function removeOrder(orderId: string, orderNumber: string) {
@@ -155,7 +165,45 @@ export function AdminOrders() {
                   </div>
                 </button>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-brown-950">{formatInr(o.totalInr)}</span>
+                  {editingAmount === o.id ? (
+                    <span className="flex items-center gap-1">
+                      <input
+                        autoFocus
+                        type="number"
+                        min={0}
+                        value={amountDraft}
+                        onChange={(e) => setAmountDraft(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveAmount(o.id);
+                          if (e.key === "Escape") setEditingAmount(null);
+                        }}
+                        className="w-24 rounded-lg border border-gold-500/50 px-2 py-1 text-sm"
+                      />
+                      <button
+                        onClick={() => saveAmount(o.id)}
+                        className="rounded-full bg-brown-950 px-2.5 py-1 text-xs font-semibold text-gold-300"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingAmount(null)}
+                        className="text-xs text-brown-500 hover:underline"
+                      >
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setEditingAmount(o.id);
+                        setAmountDraft(String(o.totalInr));
+                      }}
+                      title="Click to change the amount (discount, corrected delivery fee…)"
+                      className="font-semibold text-brown-950 underline decoration-gold-500/50 decoration-dotted underline-offset-4 hover:text-gold-700"
+                    >
+                      {formatInr(o.totalInr)}
+                    </button>
+                  )}
                   {o.paymentMethod === "UPI" ? (
                     o.paymentStatus === "PAID" ? (
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800">

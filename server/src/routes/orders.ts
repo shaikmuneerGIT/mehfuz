@@ -243,6 +243,33 @@ ordersRouter.patch("/:id/payment", requireAdmin, async (req: AuthedRequest, res)
   res.json(order);
 });
 
+/**
+ * Adjust what an order costs (admin): a negotiated discount, a waived or
+ * corrected delivery fee. Item lines stay untouched, so the difference between
+ * subtotal + shipping and the new total is shown as a discount on the order
+ * page, emails and invoice.
+ */
+const amountSchema = z.object({
+  totalInr: z.number().int().min(0).max(10_000_000),
+  shippingInr: z.number().int().min(0).max(100_000).optional(),
+});
+
+ordersRouter.patch("/:id/amount", requireAdmin, async (req: AuthedRequest, res) => {
+  const parsed = amountSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid amount" });
+
+  const order = await prisma.order.findUnique({ where: { id: req.params.id as string } });
+  if (!order) return res.status(404).json({ error: "Order not found" });
+
+  const shippingInr = parsed.data.shippingInr ?? order.shippingInr;
+  const updated = await prisma.order.update({
+    where: { id: order.id },
+    data: { totalInr: parsed.data.totalInr, shippingInr },
+    include: { items: true },
+  });
+  res.json(updated);
+});
+
 // Hard-delete an order (admin) — for test orders and junk. Items cascade.
 ordersRouter.delete("/:id", requireAdmin, async (req: AuthedRequest, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id as string } });

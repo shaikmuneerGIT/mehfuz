@@ -298,6 +298,64 @@ adminRouter.post("/stock-receipts", async (req, res) => {
   });
 });
 
+/**
+ * Inventory reconciliation: for every sellable pack, what's on the shelf now,
+ * how much was recorded as received, and how much has actually been sold.
+ * "Opening" is whatever the current stock can't be explained by those two —
+ * i.e. stock that existed before deliveries were being recorded, or manual
+ * edits on the product form.
+ */
+adminRouter.get("/stock-overview", async (_req, res) => {
+  const [variants, receivedRows, soldRows] = await Promise.all([
+    prisma.variant.findMany({
+      where: { isActive: true },
+      include: { product: { select: { name: true, isActive: true } } },
+    }),
+    prisma.stockReceiptItem.groupBy({ by: ["variantId"], _sum: { quantity: true } }),
+    prisma.orderItem.groupBy({
+      by: ["variantId"],
+      _sum: { quantity: true },
+      where: { order: { status: { not: "CANCELLED" } } },
+    }),
+  ]);
+
+  const received = new Map(receivedRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
+  const sold = new Map(soldRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
+
+  const rows = variants
+    .map((v) => {
+      const rec = received.get(v.id) ?? 0;
+      const sld = sold.get(v.id) ?? 0;
+      return {
+        variantId: v.id,
+        productName: v.product.name,
+        productActive: v.product.isActive,
+        label: v.label,
+        priceInr: v.priceInr,
+        stock: v.stock,
+        received: rec,
+        sold: sld,
+        // What the stock would be from recorded movements alone.
+        opening: v.stock - rec + sld,
+        stockValueInr: v.stock * v.priceInr,
+      };
+    })
+    .sort((a, b) => a.stock - b.stock || a.productName.localeCompare(b.productName));
+
+  res.json({
+    rows,
+    totals: {
+      packs: rows.length,
+      unitsInStock: rows.reduce((s, r) => s + r.stock, 0),
+      unitsSold: rows.reduce((s, r) => s + r.sold, 0),
+      unitsReceived: rows.reduce((s, r) => s + r.received, 0),
+      stockValueInr: rows.reduce((s, r) => s + r.stockValueInr, 0),
+      outOfStock: rows.filter((r) => r.stock === 0).length,
+      lowStock: rows.filter((r) => r.stock > 0 && r.stock <= LOW_STOCK_THRESHOLD).length,
+    },
+  });
+});
+
 // Deleting a receipt also takes back the stock it added, so inventory keeps
 // matching the deliveries actually recorded. Stock is floored at zero — units
 // already sold can't be un-sold.
