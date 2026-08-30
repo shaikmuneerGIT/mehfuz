@@ -56,6 +56,15 @@ export function AdminOrders() {
         ? orders.filter((o) => o.paymentMethod === "UPI" && o.paymentStatus !== "PAID")
         : orders.filter((o) => o.status === statusFilter);
 
+  // Totals for whatever is on screen. Cancelled orders are counted separately
+  // so the headline figure reflects money actually expected.
+  const live = visible.filter((o) => o.status !== "CANCELLED");
+  const totalInr = live.reduce((sum, o) => sum + o.totalInr, 0);
+  const receivedInr = live
+    .filter((o) => o.paymentMethod === "COD" || o.paymentStatus === "PAID")
+    .reduce((sum, o) => sum + o.totalInr, 0);
+  const awaitingInr = totalInr - receivedInr;
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -77,6 +86,48 @@ export function AdminOrders() {
           </option>
         </select>
       </div>
+
+      {!loading && visible.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-gold-500/30 bg-white px-5 py-3">
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+              Orders
+            </div>
+            <div className="font-display text-lg font-bold text-brown-950">{live.length}</div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+              Total amount
+            </div>
+            <div className="font-display text-lg font-bold text-brown-950">
+              {formatInr(totalInr)}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+              Payment received
+            </div>
+            <div className="font-display text-lg font-bold text-green-700">
+              {formatInr(receivedInr)}
+            </div>
+          </div>
+          {awaitingInr > 0 && (
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
+                Awaiting payment
+              </div>
+              <div className="font-display text-lg font-bold text-maroon-700">
+                {formatInr(awaitingInr)}
+              </div>
+            </div>
+          )}
+          {visible.length !== live.length && (
+            <div className="text-xs text-brown-500">
+              ({visible.length - live.length} cancelled, not counted)
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <p className="text-brown-500">Loading...</p>
