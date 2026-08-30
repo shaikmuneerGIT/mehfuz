@@ -4,7 +4,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../middleware/auth";
-import { applyAdjustments, reconcileStock } from "../lib/stock";
+import { packGrams, availablePacks, syncVariantStock, moveGrams, setGrams } from "../lib/stock";
 import { parseWeightKg } from "../lib/shipping";
 
 export const adminRouter = Router();
@@ -110,11 +110,16 @@ adminRouter.post("/products", async (req, res) => {
   }
   const { variants, ...productData } = parsed.data;
 
+  // A new product holds nothing until a delivery is recorded or its weight is
+  // set on the Stock page. Creating it with pack counts would advertise stock
+  // that checkout then refuses, because stockGrams starts at zero.
   const product = await prisma.product.create({
     data: {
       ...(blankToNull(productData) as typeof productData),
       slug: slugify(productData.name) + "-" + Math.random().toString(36).slice(2, 7),
-      variants: { create: variants.map(({ id, ...v }) => v) },
+      variants: {
+        create: variants.map((v) => ({ label: v.label, priceInr: v.priceInr, stock: 0 })),
+      },
     },
     include: { variants: true, category: true },
   });
@@ -148,24 +153,10 @@ adminRouter.put("/products/:id", async (req, res) => {
     ).map((oi) => oi.variantId)
   );
 
-  // Editing a pack's stock on the product form is a hand correction like any
-  // other, so it is recorded — otherwise it would silently break the stock
-  // page's arithmetic.
-  const stockBefore = new Map(existing.variants.map((v) => [v.id, v.stock]));
-  const stockAdjustments = variants
-    .filter((v) => v.id && stockBefore.has(v.id) && v.stock !== stockBefore.get(v.id))
-    .map((v) =>
-      prisma.stockAdjustment.create({
-        data: {
-          variantId: v.id as string,
-          quantity: v.stock - (stockBefore.get(v.id as string) ?? 0),
-          reason: "changed on the product form",
-        },
-      })
-    );
-
+  // Stock is not edited here: pack counts are derived from the product's bulk
+  // weight, which the Stock page owns. Accepting a number here would create a
+  // second set of books that immediately disagrees with the first.
   await prisma.$transaction([
-    ...stockAdjustments,
     ...removed.map((v) =>
       orderedVariantIds.has(v.id)
         ? prisma.variant.update({ where: { id: v.id }, data: { isActive: false } })
@@ -175,15 +166,10 @@ adminRouter.put("/products/:id", async (req, res) => {
       v.id
         ? prisma.variant.update({
             where: { id: v.id },
-            data: { label: v.label, priceInr: v.priceInr, stock: v.stock },
+            data: { label: v.label, priceInr: v.priceInr },
           })
         : prisma.variant.create({
-            data: {
-              label: v.label,
-              priceInr: v.priceInr,
-              stock: v.stock,
-              productId: req.params.id,
-            },
+            data: { label: v.label, priceInr: v.priceInr, productId: req.params.id },
           })
     ),
     prisma.product.update({
@@ -191,6 +177,8 @@ adminRouter.put("/products/:id", async (req, res) => {
       data: blankToNull(productData) as typeof productData,
     }),
   ]);
+
+  await syncVariantStock([req.params.id]);
 
   const product = await prisma.product.findUnique({
     where: { id: req.params.id },
@@ -292,13 +280,14 @@ adminRouter.post("/stock-receipts", async (req, res) => {
       },
       include: { items: true },
     }),
-    ...items.map((i) =>
-      prisma.variant.update({
-        where: { id: i.variantId },
-        data: { stock: { increment: i.quantity } },
-      })
-    ),
   ]);
+
+  // A delivery adds bulk weight; pack counts follow from it.
+  const receivedGrams = items.reduce(
+    (g, i) => g + packGrams(variantById.get(i.variantId)!.label) * i.quantity,
+    0
+  );
+  await moveGrams(new Map([[productId, receivedGrams]]), "delivery recorded");
 
   res.status(201).json({
     id: receipt.id,
@@ -325,124 +314,141 @@ adminRouter.post("/stock-receipts", async (req, res) => {
  * edits on the product form.
  */
 adminRouter.get("/stock-overview", async (_req, res) => {
-  const [variants, recon] = await Promise.all([
-    prisma.variant.findMany({
-      where: { isActive: true },
-      include: { product: { select: { name: true, isActive: true } } },
+  const [products, receipts, sales] = await Promise.all([
+    prisma.product.findMany({
+      select: {
+        id: true,
+        name: true,
+        isActive: true,
+        stockGrams: true,
+        variants: {
+          where: { isActive: true },
+          select: { id: true, label: true, priceInr: true },
+        },
+      },
+      orderBy: { name: "asc" },
     }),
-    reconcileStock(),
+    prisma.stockReceiptItem.groupBy({ by: ["variantId"], _sum: { quantity: true } }),
+    prisma.orderItem.groupBy({
+      by: ["variantId"],
+      _sum: { quantity: true },
+      where: { order: { status: { not: "CANCELLED" } } },
+    }),
   ]);
 
-  const rows = variants
-    .map((v) => {
-      const r = recon.get(v.id);
+  const receivedPacks = new Map(receipts.map((r) => [r.variantId, r._sum.quantity ?? 0]));
+  const soldPacks = new Map(sales.map((r) => [r.variantId, r._sum.quantity ?? 0]));
+
+  const productRows = products
+    .filter((p) => p.variants.length > 0)
+    .map((p) => {
+      const packs = p.variants
+        .map((v) => {
+          const grams = packGrams(v.label);
+          return {
+            variantId: v.id,
+            productName: p.name,
+            productActive: p.isActive,
+            label: v.label,
+            priceInr: v.priceInr,
+            packGrams: grams,
+            received: receivedPacks.get(v.id) ?? 0,
+            sold: soldPacks.get(v.id) ?? 0,
+            // What this pack size can be filled with from the bulk on hand.
+            available: availablePacks(p.stockGrams, grams),
+          };
+        })
+        .sort((a, b) => a.packGrams - b.packGrams);
+
+      const receivedGrams = packs.reduce((g, v) => g + v.received * v.packGrams, 0);
+      const soldGrams = packs.reduce((g, v) => g + v.sold * v.packGrams, 0);
+      // Whatever the delivery and sales records don't explain: stock already
+      // on the shelf, or a hand count. Defined as the residual, so the four
+      // figures on screen always add up exactly.
+      const openingGrams = p.stockGrams - receivedGrams + soldGrams;
+      // Value the bulk at the best price per gram the pack sizes offer.
+      const perGram = packs.length
+        ? Math.min(...packs.map((v) => v.priceInr / v.packGrams))
+        : 0;
+
       return {
-        variantId: v.id,
-        productName: v.product.name,
-        productActive: v.product.isActive,
-        label: v.label,
-        priceInr: v.priceInr,
-        stock: v.stock,
-        received: r?.received ?? 0,
-        sold: r?.sold ?? 0,
-        adjusted: r?.adjusted ?? 0,
-        expected: r?.expected ?? 0,
-        reconciles: r?.reconciles ?? true,
-        stockValueInr: v.stock * v.priceInr,
-        // Pack counts can't be added across sizes — two 1kg packs and one
-        // 250g pack are not "three". Weight is the only unit in which a
-        // product's received, sold and remaining figures can be compared.
-        packKg: parseWeightKg(v.label),
+        productId: p.id,
+        productName: p.name,
+        productActive: p.isActive,
+        stockGrams: p.stockGrams,
+        receivedGrams,
+        soldGrams,
+        openingGrams,
+        stockValueInr: Math.round(p.stockGrams * perGram),
+        packs,
       };
     })
-    .sort((a, b) => a.stock - b.stock || a.productName.localeCompare(b.productName));
+    .sort((a, b) => a.stockGrams - b.stockGrams || a.productName.localeCompare(b.productName));
 
   res.json({
-    rows,
+    products: productRows,
     totals: {
-      packs: rows.length,
-      unitsInStock: rows.reduce((s, r) => s + r.stock, 0),
-      unitsSold: rows.reduce((s, r) => s + r.sold, 0),
-      unitsReceived: rows.reduce((s, r) => s + r.received, 0),
-      unitsAdjusted: rows.reduce((s, r) => s + r.adjusted, 0),
-      kgInStock: rows.reduce((s, r) => s + r.stock * r.packKg, 0),
-      kgSold: rows.reduce((s, r) => s + r.sold * r.packKg, 0),
-      kgReceived: rows.reduce((s, r) => s + r.received * r.packKg, 0),
-      stockValueInr: rows.reduce((s, r) => s + r.stockValueInr, 0),
-      outOfStock: rows.filter((r) => r.stock === 0).length,
-      lowStock: rows.filter((r) => r.stock > 0 && r.stock <= LOW_STOCK_THRESHOLD).length,
-      // Packs whose stock can't be explained by received + adjusted - sold.
-      notReconciled: rows.filter((r) => !r.reconciles).length,
+      productCount: productRows.length,
+      gramsInStock: productRows.reduce((g, p) => g + p.stockGrams, 0),
+      gramsSold: productRows.reduce((g, p) => g + p.soldGrams, 0),
+      gramsReceived: productRows.reduce((g, p) => g + p.receivedGrams, 0),
+      stockValueInr: productRows.reduce((v, p) => v + p.stockValueInr, 0),
+      outOfStock: productRows.filter((p) => p.stockGrams === 0).length,
+      lowStock: productRows.filter(
+        (p) => p.stockGrams > 0 && p.stockGrams < LOW_STOCK_GRAMS
+      ).length,
     },
   });
 });
 
 /**
- * Set the counted stock for one or more packs directly. Deliveries and sales
- * keep stock moving day to day, but a physical stock-take is the source of
- * truth — this lets the owner type what is actually on the shelf.
+ * A physical stock-take: the owner states how much of a product is actually
+ * there, as a weight. Weight is the only unambiguous way to say it — asking
+ * for a count of each pack size cannot work, because 1 kg IS four 250g packs
+ * AND two 500g packs AND one 1kg pack at the same time, so adding those
+ * together would triple the real stock.
  */
-const stockCountsSchema = z.object({
-  counts: z
+const stockWeightSchema = z.object({
+  weights: z
     .array(
       z.object({
-        variantId: z.string().min(1),
-        stock: z.number().int().min(0).max(100000),
+        productId: z.string().min(1),
+        grams: z.number().int().min(0).max(100_000_000),
       })
     )
     .min(1)
     .max(500),
 });
 
-adminRouter.put("/stock-counts", async (req, res) => {
-  const parsed = stockCountsSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "Invalid stock counts" });
+adminRouter.put("/stock-weights", async (req, res) => {
+  const parsed = stockWeightSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid stock weights" });
 
-  // Ignore ids that no longer exist rather than failing the whole save.
-  const known = await prisma.variant.findMany({
-    where: { id: { in: parsed.data.counts.map((c) => c.variantId) } },
-    select: { id: true, stock: true },
+  const known = await prisma.product.findMany({
+    where: { id: { in: parsed.data.weights.map((w) => w.productId) } },
+    select: { id: true },
   });
-  const stockById = new Map(known.map((v) => [v.id, v.stock]));
-  const updates = parsed.data.counts.filter((c) => stockById.has(c.variantId));
+  const knownIds = new Set(known.map((p) => p.id));
+  const updates = parsed.data.weights.filter((w) => knownIds.has(w.productId));
 
-  // A counted number is not explained by deliveries or sales, so the
-  // difference is recorded as an adjustment — otherwise the stock page's
-  // arithmetic would stop adding up the moment anyone corrected a count.
-  const ops = await applyAdjustments(
-    updates.map((c) => ({
-      variantId: c.variantId,
-      delta: c.stock - (stockById.get(c.variantId) ?? 0),
-      reason: "counted by hand",
-    }))
-  );
-  await prisma.$transaction(ops as never[]);
+  for (const w of updates) {
+    await setGrams(w.productId, w.grams);
+  }
 
   res.json({ updated: updates.length });
 });
 
 /**
- * Force the arithmetic to close for every pack: whatever stock cannot be
- * explained by deliveries minus sales is written down as one adjustment, so
- * the stock page stops showing differences it can't account for.
+ * Re-derive every pack count from the weight on hand. Nothing here can drift
+ * any more — pack counts are a view, not a second set of books — so this is
+ * only a repair hatch if a count is ever edited outside the app.
  */
 adminRouter.post("/stock-reconcile", async (_req, res) => {
-  const recon = await reconcileStock();
-  const drifting = [...recon.values()].filter((r) => !r.reconciles);
-
-  const ops = drifting.map((r) =>
-    prisma.stockAdjustment.create({
-      data: {
-        variantId: r.variantId,
-        quantity: r.stock - r.expected,
-        reason: "opening stock (before deliveries were recorded)",
-      },
-    })
-  );
-  await prisma.$transaction(ops);
-
-  res.json({ reconciled: drifting.length, packs: recon.size });
+  const products = await prisma.product.findMany({ select: { id: true } });
+  await syncVariantStock(products.map((p) => p.id));
+  res.json({ reconciled: products.length, packs: products.length });
 });
+
 
 // Deleting a receipt also takes back the stock it added, so inventory keeps
 // matching the deliveries actually recorded. Stock is floored at zero — units
@@ -454,41 +460,13 @@ adminRouter.delete("/stock-receipts/:id", async (req, res) => {
   });
   if (!receipt) return res.status(404).json({ error: "Stock entry not found" });
 
-  const variants = await prisma.variant.findMany({
-    where: { id: { in: receipt.items.map((i) => i.variantId) } },
-    select: { id: true, stock: true },
-  });
-  const stockById = new Map(variants.map((v) => [v.id, v.stock]));
-
-  // Removing the delivery drops it out of `received`, so stock comes down by
-  // the same amount and the arithmetic stays balanced. Only what the zero
-  // floor swallows needs recording.
-  const shortfalls = receipt.items
-    .map((i) => ({
-      variantId: i.variantId,
-      lost: Math.max(0, i.quantity - (stockById.get(i.variantId) ?? 0)),
-    }))
-    .filter((s) => s.lost > 0)
-    .map((s) =>
-      prisma.stockAdjustment.create({
-        data: {
-          variantId: s.variantId,
-          quantity: s.lost,
-          reason: "delivery removed (stock could not go below zero)",
-        },
-      })
-    );
-
-  await prisma.$transaction([
-    ...receipt.items.map((i) =>
-      prisma.variant.update({
-        where: { id: i.variantId },
-        data: { stock: Math.max(0, (stockById.get(i.variantId) ?? 0) - i.quantity) },
-      })
-    ),
-    ...shortfalls,
-    prisma.stockReceipt.delete({ where: { id: receipt.id } }),
-  ]);
+  // Removing the delivery takes its weight back off the shelf.
+  const removedGrams = receipt.items.reduce(
+    (g, i) => g + packGrams(i.labelSnapshot) * i.quantity,
+    0
+  );
+  await prisma.stockReceipt.delete({ where: { id: receipt.id } });
+  await moveGrams(new Map([[receipt.productId, -removedGrams]]), "delivery removed");
 
   res.status(204).send();
 });
@@ -556,6 +534,8 @@ adminRouter.delete("/expenses/:id", async (req, res) => {
 // ---- Dashboard summary ----
 
 const LOW_STOCK_THRESHOLD = 5;
+// Half a kilo left of a product is worth a warning, whatever pack sizes it sells in.
+const LOW_STOCK_GRAMS = 500;
 
 adminRouter.get("/summary", async (_req, res) => {
   const [productCount, orderCount, pendingOrders, revenueAgg, stockCostAgg, expenseAgg, lowStock] =

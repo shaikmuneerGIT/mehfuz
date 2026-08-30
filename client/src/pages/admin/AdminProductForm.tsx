@@ -275,15 +275,12 @@ export function AdminProductForm() {
                   onChange={(e) => updateVariant(i, { priceInr: e.target.value })}
                   className="input"
                 />
-                <input
-                  required
-                  type="number"
-                  min={0}
-                  placeholder="Stock"
-                  value={v.stock}
-                  onChange={(e) => updateVariant(i, { stock: e.target.value })}
-                  className="input"
-                />
+                <div
+                  title="Stock is counted by weight on the Stock page — every pack size is worked out from it"
+                  className="flex items-center rounded-lg border border-gold-500/25 bg-cream-50 px-3 text-sm text-brown-500"
+                >
+                  {v.stock === "" ? "0" : v.stock} in stock
+                </div>
                 <button
                   type="button"
                   onClick={() => removeVariant(i)}

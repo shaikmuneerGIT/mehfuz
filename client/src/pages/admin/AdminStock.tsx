@@ -2,46 +2,53 @@ import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import type { Product, StockReceipt } from "../../types";
 import { formatInr } from "../../lib/format";
-import { formatWeight } from "../../lib/weight";
 
-interface StockRow {
+interface PackRow {
   variantId: string;
   productName: string;
-  productActive: boolean;
   label: string;
   priceInr: number;
-  stock: number;
+  packGrams: number;
   received: number;
   sold: number;
-  adjusted: number;
-  expected: number;
-  reconciles: boolean;
+  available: number;
+}
+
+interface ProductRow {
+  productId: string;
+  productName: string;
+  productActive: boolean;
+  stockGrams: number;
+  receivedGrams: number;
+  soldGrams: number;
+  openingGrams: number;
   stockValueInr: number;
-  packKg: number;
+  packs: PackRow[];
 }
 
 interface StockOverview {
-  rows: StockRow[];
+  products: ProductRow[];
   totals: {
-    packs: number;
-    unitsInStock: number;
-    unitsSold: number;
-    unitsReceived: number;
-    unitsAdjusted: number;
-    kgInStock: number;
-    kgSold: number;
-    kgReceived: number;
+    productCount: number;
+    gramsInStock: number;
+    gramsSold: number;
+    gramsReceived: number;
     stockValueInr: number;
     outOfStock: number;
     lowStock: number;
-    notReconciled: number;
   };
 }
 
+/** "750 g" under a kilo, "2.5 kg" above. */
+function grams(g: number): string {
+  if (g === 0) return "0";
+  return g < 1000 ? `${g} g` : `${Number((g / 1000).toFixed(3))} kg`;
+}
+
 /**
- * Current stock for every pack. The count is editable: deliveries and sales
- * move it automatically, but a physical stock-take always wins, so the owner
- * can type what is really on the shelf and save.
+ * Stock is bulk weight; pack sizes are cut from it. So each product is one
+ * line in kilos, and its pack sizes underneath show what that weight can
+ * fill — 250 g left is one 250g pack and no 500g or 1kg at all.
  */
 function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -50,109 +57,49 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [fillScope, setFillScope] = useState("ZEROS");
-  const [fillValue, setFillValue] = useState("");
-  const [reconciling, setReconciling] = useState(false);
+  const [units, setUnits] = useState<Record<string, "g" | "kg">>({});
 
-  async function reconcile() {
-    setReconciling(true);
-    setError(null);
-    try {
-      await api.post("/admin/stock-reconcile");
-      onSaved();
-    } catch {
-      setError("Could not balance the stock figures.");
-    } finally {
-      setReconciling(false);
-    }
+  /** A product is being counted once its weight box has been typed into. */
+  function isCounted(p: ProductRow): boolean {
+    return edits[p.productId] !== undefined;
   }
 
-  // A row's live value is whatever is typed, falling back to the saved count.
-  function liveStock(r: StockRow): number {
-    const typed = edits[r.variantId];
-    if (typed === undefined) return r.stock;
+  /**
+   * A stock-take is stated as a weight, never as a count of each pack size.
+   * 1 kg IS four 250g packs AND two 500g packs AND one 1kg pack at once, so
+   * asking for all three and adding them up would treble the real stock.
+   */
+  function liveGrams(p: ProductRow): number {
+    const typed = edits[p.productId];
+    if (typed === undefined) return p.stockGrams;
     const n = Number(typed);
-    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+    if (!Number.isFinite(n) || n < 0) return 0;
+    return Math.round(n * (units[p.productId] === "g" ? 1 : 1000));
   }
 
   const q = query.trim().toLowerCase();
-  const matching = q
-    ? data.rows.filter(
-        (r) => r.productName.toLowerCase().includes(q) || r.label.toLowerCase().includes(q)
+  const products = q
+    ? data.products.filter(
+        (p) =>
+          p.productName.toLowerCase().includes(q) ||
+          p.packs.some((v) => v.label.toLowerCase().includes(q))
       )
-    : data.rows;
-  const rows = matching;
+    : data.products;
 
-  /**
-   * One line per product rather than per pack: the owner thinks in products
-   * ("how much cashew is left"), not in 250g/500g/1kg rows. Each product's
-   * pack sizes are still there, one click away, because that is where a count
-   * actually gets corrected.
-   */
-  const groups = [...new Set(rows.map((r) => r.productName))]
-    .sort((a, b) => a.localeCompare(b))
-    .map((name) => {
-      const groupRows = rows
-        .filter((r) => r.productName === name)
-        .sort((a, b) => a.priceInr - b.priceInr);
-      return {
-        name,
-        rows: groupRows,
-        productActive: groupRows[0]?.productActive ?? true,
-        receivedKg: groupRows.reduce((s, r) => s + r.received * r.packKg, 0),
-        soldKg: groupRows.reduce((s, r) => s + r.sold * r.packKg, 0),
-        adjustedKg: groupRows.reduce((s, r) => s + r.adjusted * r.packKg, 0),
-        leftKg: groupRows.reduce((s, r) => s + liveStock(r) * r.packKg, 0),
-        left: groupRows.reduce((s, r) => s + liveStock(r), 0),
-        value: groupRows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
-      };
-    });
+  const dirty = data.products.filter(isCounted);
 
-  // Totals follow what's on screen, so an edit's effect is visible before
-  // saving. Out-of-stock counts whole products, matching the table's rows —
-  // a product with a sold-out 250g but stock in 1kg is not out of stock.
-  const stockByProduct = new Map<string, number>();
-  for (const r of data.rows) {
-    stockByProduct.set(r.productName, (stockByProduct.get(r.productName) ?? 0) + liveStock(r));
-  }
-  const productStocks = [...stockByProduct.values()];
   const totals = {
-    unitsInStock: data.rows.reduce((s, r) => s + liveStock(r), 0),
-    kgInStock: data.rows.reduce((s, r) => s + liveStock(r) * r.packKg, 0),
-    stockValueInr: data.rows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
-    outOfStock: productStocks.filter((n) => n === 0).length,
-    lowStock: productStocks.filter((n) => n > 0 && n <= 5).length,
+    gramsInStock: data.products.reduce((g, p) => g + liveGrams(p), 0),
+    outOfStock: data.products.filter((p) => liveGrams(p) === 0).length,
   };
-
-  const dirty = data.rows.filter((r) => liveStock(r) !== r.stock);
-
-  const productNames = [...new Set(data.rows.map((r) => r.productName))].sort((a, b) =>
-    a.localeCompare(b)
-  );
-
-  /** Type a number once and drop it into a whole group of boxes. */
-  function applyFill() {
-    const n = Number(fillValue);
-    if (!Number.isFinite(n) || n < 0) return;
-    const target = data.rows.filter((r) => {
-      if (fillScope === "ZEROS") return liveStock(r) === 0;
-      if (fillScope === "SHOWN") return rows.some((x) => x.variantId === r.variantId);
-      return r.productName === fillScope.slice(2);
-    });
-    setEdits((prev) => {
-      const next = { ...prev };
-      for (const r of target) next[r.variantId] = String(Math.floor(n));
-      return next;
-    });
-  }
 
   async function saveCounts() {
     if (dirty.length === 0) return;
     setSaving(true);
     setError(null);
     try {
-      await api.put("/admin/stock-counts", {
-        counts: dirty.map((r) => ({ variantId: r.variantId, stock: liveStock(r) })),
+      await api.put("/admin/stock-weights", {
+        weights: dirty.map((p) => ({ productId: p.productId, grams: liveGrams(p) })),
       });
       setEdits({});
       setSaved(true);
@@ -161,7 +108,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
     } catch (err) {
       setError(
         (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
-          "Could not save the stock counts."
+          "Could not save the stock."
       );
     } finally {
       setSaving(false);
@@ -176,15 +123,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             Stock on hand
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {formatWeight(totals.kgInStock)}
-          </div>
-        </div>
-        <div>
-          <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-            Sold
-          </div>
-          <div className="font-display text-lg font-bold text-brown-950">
-            {formatWeight(data.totals.kgSold)}
+            {grams(totals.gramsInStock)}
           </div>
         </div>
         <div>
@@ -192,7 +131,13 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             Received
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {formatWeight(data.totals.kgReceived)}
+            {grams(data.totals.gramsReceived)}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-medium uppercase tracking-wide text-brown-500">Sold</div>
+          <div className="font-display text-lg font-bold text-brown-950">
+            {grams(data.totals.gramsSold)}
           </div>
         </div>
         <div>
@@ -200,7 +145,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             Stock value
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {formatInr(totals.stockValueInr)}
+            {formatInr(data.totals.stockValueInr)}
           </div>
         </div>
         {totals.outOfStock > 0 && (
@@ -213,91 +158,17 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             </div>
           </div>
         )}
-        {totals.lowStock > 0 && (
-          <div>
-            <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-              Products low on stock
-            </div>
-            <div className="font-display text-lg font-bold text-gold-700">
-              {totals.lowStock}
-            </div>
-          </div>
-        )}
       </div>
-
-      {data.totals.notReconciled > 0 ? (
-        <div className="mb-3 rounded-xl border border-maroon-700/40 bg-maroon-700/5 px-4 py-3">
-          <div className="text-sm font-semibold text-maroon-700">
-            {data.totals.notReconciled} pack
-            {data.totals.notReconciled > 1 ? "s don’t" : " doesn’t"} add up
-          </div>
-          <p className="mt-1 text-xs text-brown-700">
-            Stock should always equal <b>received + adjusted − sold</b>. These packs hold
-            stock that no delivery, sale or correction explains — usually stock that was
-            already on the shelf before you started recording deliveries.
-          </p>
-          <button
-            onClick={reconcile}
-            disabled={reconciling}
-            className="mt-2 rounded-full bg-brown-950 px-4 py-1.5 text-xs font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
-          >
-            {reconciling ? "Balancing…" : "Record it as opening stock and balance"}
-          </button>
-        </div>
-      ) : (
-        <div className="mb-3 rounded-xl border border-forest-950/25 bg-forest-950/5 px-4 py-2 text-sm font-semibold text-forest-950">
-          ✓ Every pack adds up — stock matches received + adjusted − sold, on all{" "}
-          {data.totals.packs} packs.
-        </div>
-      )}
 
       <div className="mb-3 rounded-xl border border-gold-500/30 bg-cream-50 px-4 py-3">
         <div className="text-sm font-semibold text-brown-900">
-          Showing zero? Type the real number in the “In stock” box.
+          Stock is counted by weight, and pack sizes come out of it.
         </div>
         <p className="mt-1 text-xs text-brown-600">
-          What you type replaces the count the system worked out from deliveries and orders.
-          Change as many rows as you like, then press Save — nothing changes until you do.
+          If 250 g of a product is left, that is one 250g pack — the 500g and 1kg show{" "}
+          <b>out of stock</b> to customers automatically. Click a product to count what is on
+          the shelf, pack by pack, then press Save.
         </p>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gold-500/25 pt-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-brown-500">
-            Fill many at once
-          </span>
-          <select
-            value={fillScope}
-            onChange={(e) => setFillScope(e.target.value)}
-            className="rounded-lg border border-gold-500/40 bg-white px-2 py-1 text-sm"
-          >
-            <option value="ZEROS">every pack showing 0</option>
-            <option value="SHOWN">every pack listed below</option>
-            {productNames.map((name) => (
-              <option key={name} value={`P:${name}`}>
-                every pack of {name}
-              </option>
-            ))}
-          </select>
-          <span className="text-sm text-brown-700">to</span>
-          <input
-            type="number"
-            min={0}
-            value={fillValue}
-            onChange={(e) => setFillValue(e.target.value)}
-            placeholder="e.g. 10"
-            className="w-24 rounded-lg border border-gold-500/40 bg-white px-2 py-1 text-sm"
-          />
-          <span className="text-sm text-brown-700">units</span>
-          <button
-            onClick={applyFill}
-            disabled={fillValue.trim() === ""}
-            className="rounded-full border border-gold-500/60 bg-white px-4 py-1 text-sm font-semibold text-brown-800 hover:bg-cream-100 disabled:opacity-50"
-          >
-            Fill
-          </button>
-          <span className="text-xs text-brown-500">
-            Fills the boxes only — press Save to make it real.
-          </span>
-        </div>
       </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -316,7 +187,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             ? "Saving…"
             : dirty.length === 0
               ? "Save stock"
-              : `Save ${dirty.length} change${dirty.length > 1 ? "s" : ""}`}
+              : `Save ${dirty.length} product${dirty.length > 1 ? "s" : ""}`}
         </button>
         {dirty.length > 0 && (
           <button
@@ -338,7 +209,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
               <th className="px-3 py-2 text-right font-medium">Received</th>
               <th
                 className="px-3 py-2 text-right font-medium"
-                title="Stock already on the shelf plus any hand corrections"
+                title="Stock already on the shelf, or a hand count"
               >
                 + Opening
               </th>
@@ -348,119 +219,140 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             </tr>
           </thead>
           <tbody>
-            {groups.map((g) => {
-              const isOpen = expanded === g.name;
+            {products.map((p) => {
+              const isOpen = expanded === p.productId;
+              const left = liveGrams(p);
+              const changed = isCounted(p);
               return (
-                <Fragment key={g.name}>
+                <Fragment key={p.productId}>
                   <tr
-                    onClick={() => setExpanded(isOpen ? null : g.name)}
-                    className={`cursor-pointer border-b border-gold-500/15 last:border-0 hover:bg-cream-50 ${
-                      isOpen ? "bg-cream-50" : ""
+                    onClick={() => setExpanded(isOpen ? null : p.productId)}
+                    className={`cursor-pointer border-b border-gold-500/15 hover:bg-cream-50 ${
+                      changed ? "bg-gold-500/10" : isOpen ? "bg-cream-50" : ""
                     }`}
                   >
                     <td className="px-4 py-2.5 font-medium text-brown-900">
                       <span className="mr-2 inline-block w-3 text-gold-700">
                         {isOpen ? "▾" : "▸"}
                       </span>
-                      {g.name}
-                      {!g.productActive && (
+                      {p.productName}
+                      {!p.productActive && (
                         <span className="ml-2 text-xs text-brown-500">(hidden)</span>
                       )}
-                      <span className="ml-2 text-xs text-brown-500">
-                        {g.rows.length} pack{g.rows.length > 1 ? "s" : ""}
-                      </span>
                     </td>
                     <td className="px-3 py-2.5 text-right text-brown-700">
-                      {formatWeight(g.receivedKg)}
+                      {grams(p.receivedGrams)}
                     </td>
                     <td className="px-3 py-2.5 text-right text-brown-700">
-                      {g.adjustedKg === 0 ? "—" : formatWeight(Math.abs(g.adjustedKg))}
+                      {p.openingGrams === 0
+                        ? "—"
+                        : `${p.openingGrams < 0 ? "−" : ""}${grams(Math.abs(p.openingGrams))}`}
                     </td>
                     <td className="px-3 py-2.5 text-right text-brown-700">
-                      {formatWeight(g.soldKg)}
+                      {grams(p.soldGrams)}
                     </td>
                     <td className="px-3 py-2.5 text-right">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                          g.left === 0
+                          left === 0
                             ? "bg-maroon-700 text-white"
-                            : g.left <= 5
+                            : left < 500
                               ? "bg-maroon-700/10 text-maroon-700"
                               : "bg-forest-950/10 text-forest-950"
                         }`}
                       >
-                        {g.left === 0 ? "Out of stock" : formatWeight(g.leftKg)}
+                        {left === 0 ? "Out of stock" : grams(left)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right font-medium text-brown-900">
-                      {formatInr(g.value)}
+                      {formatInr(p.stockValueInr)}
                     </td>
                   </tr>
 
-                  {isOpen &&
-                    g.rows.map((r) => {
-                      const value = liveStock(r);
-                      const changed = value !== r.stock;
-                      return (
-                        <tr
-                          key={r.variantId}
-                          className={`border-b border-gold-500/15 text-xs ${
-                            changed ? "bg-gold-500/10" : "bg-cream-50/60"
-                          }`}
-                        >
-                          <td className="py-2 pl-12 pr-4 text-brown-700">
-                            {r.label}
-                            {!r.reconciles && (
-                              <span
-                                title={`Doesn't add up: ${r.received} received ${
-                                  r.adjusted >= 0 ? "+" : "−"
-                                } ${Math.abs(r.adjusted)} adjusted − ${r.sold} sold = ${
-                                  r.expected
-                                }, but stock says ${r.stock}`}
-                                className="ml-2 font-bold text-maroon-700"
+                  {isOpen && (
+                    <tr className="border-b border-gold-500/15 bg-cream-50/60">
+                      <td colSpan={6} className="px-4 py-3">
+                        <div className="flex flex-wrap items-end gap-6">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-brown-500">
+                              How much do you actually have?
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                step="any"
+                                value={
+                                  edits[p.productId] ??
+                                  String(
+                                    units[p.productId] === "g"
+                                      ? p.stockGrams
+                                      : Number((p.stockGrams / 1000).toFixed(3))
+                                  )
+                                }
+                                onChange={(e) =>
+                                  setEdits((prev) => ({ ...prev, [p.productId]: e.target.value }))
+                                }
+                                onFocus={(e) => e.target.select()}
+                                aria-label={`Stock weight for ${p.productName}`}
+                                className="w-28 rounded-md border border-gold-500/40 bg-white px-2 py-1 text-right text-sm font-semibold text-brown-950"
+                              />
+                              <select
+                                value={units[p.productId] ?? "kg"}
+                                onChange={(e) => {
+                                  const unit = e.target.value as "g" | "kg";
+                                  setUnits((prev) => ({ ...prev, [p.productId]: unit }));
+                                  setEdits((prev) => {
+                                    const next = { ...prev };
+                                    delete next[p.productId];
+                                    return next;
+                                  });
+                                }}
+                                className="rounded-md border border-gold-500/40 bg-white px-2 py-1 text-sm"
                               >
-                                !
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-right text-brown-600">
-                            {r.received} {r.received === 1 ? "pack" : "packs"}
-                          </td>
-                          <td className="px-3 py-2 text-right text-brown-600">
-                            {r.adjusted === 0
-                              ? "—"
-                              : `${r.adjusted > 0 ? "+" : ""}${r.adjusted}`}
-                          </td>
-                          <td className="px-3 py-2 text-right text-brown-600">
-                            {r.sold} {r.sold === 1 ? "pack" : "packs"}
-                          </td>
-                          <td className="px-3 py-2 text-right">
-                            <input
-                              type="number"
-                              min={0}
-                              value={edits[r.variantId] ?? String(r.stock)}
-                              onChange={(e) =>
-                                setEdits((prev) => ({ ...prev, [r.variantId]: e.target.value }))
-                              }
-                              onFocus={(e) => e.target.select()}
-                              aria-label={`Stock for ${r.productName} ${r.label}`}
-                              className={`w-20 rounded-md border px-2 py-1 text-right text-sm font-semibold ${
-                                value === 0
-                                  ? "border-maroon-700/50 bg-maroon-700/5 text-maroon-700"
-                                  : "border-gold-500/40 bg-white text-brown-950"
-                              }`}
-                            />
-                          </td>
-                          <td className="px-3 py-2 text-right text-brown-700">
-                            {formatInr(value * r.priceInr)}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                                <option value="kg">kg</option>
+                                <option value="g">g</option>
+                              </select>
+                            </div>
+                          </label>
+
+                          <div>
+                            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-brown-500">
+                              {grams(left)} fills any of these
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {p.packs.map((v) => {
+                                const fills = Math.floor(left / v.packGrams);
+                                return (
+                                  <span
+                                    key={v.variantId}
+                                    className={`rounded-lg border px-3 py-1.5 text-sm ${
+                                      fills === 0
+                                        ? "border-maroon-700/40 bg-maroon-700/5 text-maroon-700"
+                                        : "border-gold-500/30 bg-white text-brown-900"
+                                    }`}
+                                    title={`${v.received} packs received, ${v.sold} sold`}
+                                  >
+                                    <b>{v.label}</b>{" "}
+                                    {fills === 0 ? "out of stock" : `× ${fills}`}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="mt-2 text-[11px] text-brown-500">
+                          Those pack sizes are alternatives, not separate piles — 1 kg is four
+                          250g packs <i>or</i> two 500g <i>or</i> one 1kg, whichever customers
+                          choose, until the kilo runs out.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
                 </Fragment>
               );
             })}
-            {groups.length === 0 && (
+            {products.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-6 text-center text-brown-500">
                   No product matches “{query}”.
@@ -471,10 +363,9 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         </table>
       </div>
       <p className="mt-2 text-xs text-brown-500">
-        Product rows are in <b>weight</b>, because pack sizes can't be added together — two
-        1kg packs and one 250g pack is 2.25 kg, not "three". Received + Opening − Sold always
-        equals Left. Click a product to see its pack sizes, counted in packs, and type what
-        you actually have.
+        Received + Opening − Sold always equals Left, because all four are weights. Pack
+        sizes cannot be added together — two 1kg packs and one 250g pack is 2.25 kg, not
+        "three".
       </p>
     </div>
   );

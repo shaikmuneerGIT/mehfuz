@@ -10,7 +10,7 @@ import {
 } from "../lib/mailer";
 import { requireAdmin, AuthedRequest } from "../middleware/auth";
 import { HttpError } from "../middleware/errors";
-import { applySaleMoves } from "../lib/stock";
+import { packGrams, syncVariantStock, moveGrams } from "../lib/stock";
 
 export const ordersRouter = Router();
 
@@ -62,12 +62,27 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
     return res.status(400).json({ error: "One or more selected items are no longer available" });
   }
 
+  // Every pack size of a product is cut from the same bulk weight, so what
+  // can be sold is decided in grams, not by any one pack's count.
+  const gramsNeeded = new Map<string, number>();
   for (const item of data.items) {
     const variant = variants.find((v) => v.id === item.variantId);
-    if (!variant || variant.stock < item.quantity) {
-      return res.status(400).json({
-        error: `Insufficient stock for ${variant?.product.name ?? "an item"}`,
-      });
+    if (!variant) {
+      return res.status(400).json({ error: "One or more selected items are no longer available" });
+    }
+    gramsNeeded.set(
+      variant.productId,
+      (gramsNeeded.get(variant.productId) ?? 0) + packGrams(variant.label) * item.quantity
+    );
+  }
+
+  const stockProducts = await prisma.product.findMany({
+    where: { id: { in: [...gramsNeeded.keys()] } },
+    select: { id: true, name: true, stockGrams: true },
+  });
+  for (const p of stockProducts) {
+    if (p.stockGrams < (gramsNeeded.get(p.id) ?? 0)) {
+      return res.status(400).json({ error: `Insufficient stock for ${p.name}` });
     }
   }
 
@@ -132,25 +147,28 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
       include: { items: true },
     });
 
-    for (const item of data.items) {
-      // Guard the decrement on stock still being sufficient so two orders
+    for (const [productId, grams] of gramsNeeded) {
+      // Guard the decrement on the weight still being there, so two orders
       // placed at the same time can't drive stock negative. A miss here
       // means someone else took the last of it — roll the whole order back.
-      const { count } = await tx.variant.updateMany({
-        where: { id: item.variantId, stock: { gte: item.quantity } },
-        data: { stock: { decrement: item.quantity } },
+      const { count } = await tx.product.updateMany({
+        where: { id: productId, stockGrams: { gte: grams } },
+        data: { stockGrams: { decrement: grams } },
       });
       if (count === 0) {
-        const variant = variants.find((v) => v.id === item.variantId);
+        const name = stockProducts.find((p) => p.id === productId)?.name ?? "an item";
         throw new HttpError(
           409,
-          `Sorry, ${variant?.product.name ?? "an item"} just sold out. Please adjust your cart and try again.`
+          `Sorry, ${name} just sold out. Please adjust your cart and try again.`
         );
       }
     }
 
     return created;
   });
+
+  // Pack counts are a view of the weight, so refresh them after the sale.
+  await syncVariantStock([...gramsNeeded.keys()]);
 
   // After the transaction is committed — an email failure must never
   // roll back or delay a placed order.
@@ -351,14 +369,21 @@ ordersRouter.put("/:id/items", requireAdmin, async (req: AuthedRequest, res) => 
   // Every variant that moves either way: the ones added and the ones dropped.
   // Selling more takes stock off the shelf, selling less puts it back — `sold`
   // moves by the same amount, so no adjustment is needed to keep it balanced.
-  const touched = new Set([...wanted.keys(), ...stockCounts.keys()]);
-  const moveOps = await applySaleMoves(
-    [...touched].map((variantId) => ({
-      variantId,
-      delta: (stockCounts.get(variantId) ?? 0) - (wanted.get(variantId) ?? 0),
-      reason: `order ${order.orderNumber} edited`,
-    }))
-  );
+  // Selling more takes weight off the shelf, selling less puts it back. What
+  // goes back is weighed at the label the customer was actually sold, not at
+  // whatever the pack is called today.
+  // A cancelled order holds no stock at all, so editing one moves nothing.
+  const gramsDelta = new Map<string, number>();
+  if (order.status !== "CANCELLED") {
+    for (const i of order.items) {
+      const back = packGrams(i.labelSnapshot) * i.quantity;
+      gramsDelta.set(i.productId, (gramsDelta.get(i.productId) ?? 0) + back);
+    }
+    for (const v of variants) {
+      const take = packGrams(v.label) * (wanted.get(v.id) ?? 0);
+      gramsDelta.set(v.productId, (gramsDelta.get(v.productId) ?? 0) - take);
+    }
+  }
 
   const [, , updated] = await prisma.$transaction([
     prisma.orderItem.deleteMany({ where: { orderId: order.id } }),
@@ -368,8 +393,8 @@ ordersRouter.put("/:id/items", requireAdmin, async (req: AuthedRequest, res) => 
       data: { subtotalInr, shippingInr, totalInr: subtotalInr + shippingInr },
       include: { items: true },
     }),
-    ...(moveOps as never[]),
   ]);
+  await moveGrams(gramsDelta, `order ${order.orderNumber} edited`);
 
   res.json(updated);
 });
@@ -384,20 +409,16 @@ ordersRouter.delete("/:id", requireAdmin, async (req: AuthedRequest, res) => {
 
   // Deleting removes the order from the sold figures, so its packs return to
   // stock — unless it was cancelled, which already gave them back.
-  const saleMoves =
-    order.status === "CANCELLED"
-      ? []
-      : order.items.map((i) => ({
-          variantId: i.variantId,
-          delta: i.quantity,
-          reason: `order ${order.orderNumber} deleted`,
-        }));
-  const moveOps = await applySaleMoves(saleMoves);
+  const gramsDelta = new Map<string, number>();
+  if (order.status !== "CANCELLED") {
+    for (const i of order.items) {
+      const grams = packGrams(i.labelSnapshot) * i.quantity;
+      gramsDelta.set(i.productId, (gramsDelta.get(i.productId) ?? 0) + grams);
+    }
+  }
 
   await prisma.order.delete({ where: { id: order.id } });
-  for (const op of moveOps) {
-    await (op as Promise<unknown>);
-  }
+  await moveGrams(gramsDelta, `order ${order.orderNumber} deleted`);
   res.status(204).send();
 });
 
@@ -421,23 +442,21 @@ ordersRouter.patch("/:id/status", requireAdmin, async (req: AuthedRequest, res) 
   // cancelled order takes them off again.
   const wasCancelled = before.status === "CANCELLED";
   const nowCancelled = parsed.data.status === "CANCELLED";
-  const saleMoves =
-    wasCancelled === nowCancelled
-      ? []
-      : before.items.map((i) => ({
-          variantId: i.variantId,
-          delta: nowCancelled ? i.quantity : -i.quantity,
-          reason: nowCancelled
-            ? `order ${before.orderNumber} cancelled`
-            : `order ${before.orderNumber} reopened`,
-        }));
+  const gramsDelta = new Map<string, number>();
+  if (wasCancelled !== nowCancelled) {
+    for (const i of before.items) {
+      const grams = packGrams(i.labelSnapshot) * i.quantity * (nowCancelled ? 1 : -1);
+      gramsDelta.set(i.productId, (gramsDelta.get(i.productId) ?? 0) + grams);
+    }
+  }
 
   const order = await prisma.order.update({
     where: { id: req.params.id as string },
     data: { status: parsed.data.status },
   });
-  for (const op of await applySaleMoves(saleMoves)) {
-    await (op as Promise<unknown>);
-  }
+  await moveGrams(
+    gramsDelta,
+    nowCancelled ? `order ${before.orderNumber} cancelled` : `order ${before.orderNumber} reopened`
+  );
   res.json(order);
 });

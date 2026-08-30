@@ -1,3 +1,4 @@
+
 import { config } from "dotenv";
 config({ quiet: true });
 import path from "node:path";
@@ -227,6 +228,7 @@ async function ensureNewTables() {
     `ALTER TABLE "Category" ADD COLUMN "imageUrl" TEXT`,
     `ALTER TABLE "Category" ADD COLUMN "showOnHome" BOOLEAN NOT NULL DEFAULT true`,
     `ALTER TABLE "Category" ADD COLUMN "sortOrder" INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE "Product" ADD COLUMN "stockGrams" INTEGER NOT NULL DEFAULT 0`,
   ];
   for (const sql of columnAdds) {
     try {
@@ -246,43 +248,56 @@ async function ensureNewTables() {
 }
 
 /**
- * Stock that predates the delivery records — whatever was already on the shelf
- * when this shop started recording deliveries — has nothing to explain it, so
- * `received + adjusted - sold` would never equal it. Book it once as opening
- * stock so the stock page adds up from the very first load.
+ * Stock is held as bulk weight, because this shop cuts pack sizes from the
+ * same sack: 2 kg of almonds is two 1kg packs OR four 500g OR eight 250g, and
+ * selling two 500g packs leaves 1 kg — not "2 kg with a phantom opening
+ * balance", which is what per-pack counting produced.
  *
- * Guarded by a Setting rather than by "is anything drifting", so a real
- * discrepancy appearing later is surfaced on the stock page instead of being
- * quietly absorbed on the next restart.
+ * The one-off conversion recomputes each product's weight from the records
+ * that are real — deliveries received minus packs sold — deliberately
+ * discarding the per-pack opening balances, since those existed only to
+ * explain sales that per-pack counting could not take from a larger pack.
  */
-async function bookOpeningStock() {
+async function backfillStockGrams() {
   const { prisma } = await import("./lib/prisma");
-  const { reconcileStock, adjustmentsAvailable } = await import("./lib/stock");
-  const KEY = "openingStockBooked";
+  const { packGrams, syncVariantStock } = await import("./lib/stock");
+  const KEY = "stockGramsBackfilled";
 
-  if (!adjustmentsAvailable()) return;
   if (await prisma.setting.findUnique({ where: { key: KEY } })) return;
 
-  const drifting = [...(await reconcileStock()).values()].filter((r) => !r.reconciles);
-  if (drifting.length > 0) {
-    await prisma.$transaction(
-      drifting.map((r) =>
-        prisma.stockAdjustment.create({
-          data: {
-            variantId: r.variantId,
-            quantity: r.stock - r.expected,
-            reason: "opening stock (before deliveries were recorded)",
-          },
-        })
-      )
-    );
+  const variants = await prisma.variant.findMany({
+    select: { id: true, label: true, productId: true },
+  });
+  const [receipts, sales] = await Promise.all([
+    prisma.stockReceiptItem.groupBy({ by: ["variantId"], _sum: { quantity: true } }),
+    prisma.orderItem.groupBy({
+      by: ["variantId"],
+      _sum: { quantity: true },
+      where: { order: { status: { not: "CANCELLED" } } },
+    }),
+  ]);
+  const received = new Map(receipts.map((r) => [r.variantId, r._sum.quantity ?? 0]));
+  const sold = new Map(sales.map((r) => [r.variantId, r._sum.quantity ?? 0]));
+
+  const gramsByProduct = new Map<string, number>();
+  for (const v of variants) {
+    const g = packGrams(v.label);
+    const net = (received.get(v.id) ?? 0) * g - (sold.get(v.id) ?? 0) * g;
+    gramsByProduct.set(v.productId, (gramsByProduct.get(v.productId) ?? 0) + net);
   }
+
+  await prisma.$transaction(
+    [...gramsByProduct.entries()].map(([id, grams]) =>
+      prisma.product.update({ where: { id }, data: { stockGrams: Math.max(0, grams) } })
+    )
+  );
+  await syncVariantStock([...gramsByProduct.keys()]);
   await prisma.setting.create({ data: { key: KEY, value: new Date().toISOString() } });
-  console.log(`Opening stock booked for ${drifting.length} pack(s).`);
+  console.log(`Stock converted to weight for ${gramsByProduct.size} product(s).`);
 }
 
 ensureNewTables()
-  .then(bookOpeningStock)
+  .then(backfillStockGrams)
   .catch((err) => console.error("Table ensure failed:", err))
   .finally(() => {
     app.listen(PORT, () => {

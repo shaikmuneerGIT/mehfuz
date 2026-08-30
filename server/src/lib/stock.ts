@@ -1,151 +1,104 @@
 import { prisma } from "./prisma";
+import { parseWeightKg } from "./shipping";
 
 /**
- * Stock is not a free-floating number — it is the result of an arithmetic that
- * must always close:
+ * Stock in this shop is bulk weight, not a count of pre-made packs. The same
+ * sack of almonds fills 250g, 500g or 1kg packs, so what can be sold is
+ * decided in grams and every pack count is derived from it:
  *
- *     in stock = received + adjustments - sold
+ *     packs of a size = floor(grams on hand / that size)
  *
- * `received` comes from recorded deliveries, `sold` from every pack in a
- * non-cancelled order. Anything else that moves stock — a physical count, an
- * order edited or deleted, a delivery removed — writes an adjustment for
- * exactly the amount it moved, so the identity survives it.
- *
- * Everything here is expressed as Prisma operations rather than executed, so a
- * caller can drop them into the same transaction as the change that caused them.
+ * Counting packs independently is what made the figures impossible: two 1kg
+ * packs received minus two 500g packs sold is 1 kg left, but per-pack books
+ * could not take a 500g sale from a 1kg pack and invented an opening balance
+ * to cover it.
  */
 
-export interface StockMove {
-  variantId: string;
-  /** Positive puts units back on the shelf, negative takes them off. */
-  delta: number;
-  reason: string;
+// ---- Bulk weight: what a shop that repacks actually holds ----
+
+/**
+ * A pack's weight in whole grams. Grams (not kilos) keep every figure an
+ * integer, so weight arithmetic never drifts the way floats do.
+ */
+export function packGrams(label: string): number {
+  return Math.round(parseWeightKg(label) * 1000);
 }
 
 /**
- * Apply moves that are NOT explained by a delivery or a sale, recording an
- * adjustment for each. Stock is floored at zero — a shop can't hold -3 packs —
- * and the floored remainder is folded into the adjustment so the arithmetic
- * still closes.
+ * How many of a pack size the bulk on hand can fill. This is the whole point:
+ * 250 g of anjeer left is one 250g pack and *nothing else* — no 500g, no 1kg.
  */
-export async function applyAdjustments(moves: StockMove[]) {
-  const real = moves.filter((m) => m.delta !== 0);
-  if (real.length === 0) return [];
+export function availablePacks(stockGrams: number, grams: number): number {
+  if (grams <= 0) return 0;
+  return Math.max(0, Math.floor(stockGrams / grams));
+}
 
-  const current = await prisma.variant.findMany({
-    where: { id: { in: real.map((m) => m.variantId) } },
-    select: { id: true, stock: true },
-  });
-  const stockById = new Map(current.map((v) => [v.id, v.stock]));
-
-  return real.flatMap((m) => {
-    const before = stockById.get(m.variantId) ?? 0;
-    const after = Math.max(0, before + m.delta);
-    return [
-      prisma.variant.update({ where: { id: m.variantId }, data: { stock: after } }),
-      prisma.stockAdjustment.create({
-        data: { variantId: m.variantId, quantity: after - before, reason: m.reason },
-      }),
-    ];
-  });
+/** Total grams for a set of pack picks. */
+export function gramsFor(items: { label: string; quantity: number }[]): number {
+  return items.reduce((g, i) => g + packGrams(i.label) * i.quantity, 0);
 }
 
 /**
- * Moves caused by a sale changing — an order edited, cancelled, deleted or
- * un-cancelled. These need NO adjustment: `sold` is recomputed from the orders
- * themselves, so moving stock by the same amount keeps the identity intact.
- * Only the part lost to the zero floor is recorded, since nothing else explains it.
+ * Per-pack stock is a view of the bulk weight, not a separate fact, so it is
+ * recomputed from grams after every movement. Keeping it in the database means
+ * the storefront, cart limits and low-stock alerts need no special knowledge
+ * of weight — they keep reading `variant.stock` and simply see the truth.
  */
-export async function applySaleMoves(moves: StockMove[]) {
-  const real = moves.filter((m) => m.delta !== 0);
-  if (real.length === 0) return [];
+export async function syncVariantStock(productIds: string[]) {
+  const ids = [...new Set(productIds)].filter(Boolean);
+  if (ids.length === 0) return;
 
-  const current = await prisma.variant.findMany({
-    where: { id: { in: real.map((m) => m.variantId) } },
-    select: { id: true, stock: true },
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, stockGrams: true, variants: { select: { id: true, label: true, stock: true } } },
   });
-  const stockById = new Map(current.map((v) => [v.id, v.stock]));
 
-  return real.flatMap((m) => {
-    const before = stockById.get(m.variantId) ?? 0;
-    const wanted = before + m.delta;
-    const after = Math.max(0, wanted);
-    const ops: unknown[] = [
-      prisma.variant.update({ where: { id: m.variantId }, data: { stock: after } }),
-    ];
-    if (after !== wanted) {
-      ops.push(
-        prisma.stockAdjustment.create({
-          data: {
-            variantId: m.variantId,
-            quantity: after - wanted,
-            reason: `${m.reason} (stock could not go below zero)`,
-          },
-        })
-      );
-    }
-    return ops;
-  });
-}
-
-export interface Reconciliation {
-  variantId: string;
-  received: number;
-  sold: number;
-  adjusted: number;
-  stock: number;
-  /** What stock must be for the arithmetic to close. */
-  expected: number;
-  reconciles: boolean;
-}
-
-/**
- * True once the deployed Prisma client knows about StockAdjustment. The server
- * runs a generated client, so a deploy that ships new code before the
- * regenerated client would otherwise crash every stock query — better to show
- * the page without adjustments than to show nothing at all.
- */
-export function adjustmentsAvailable(): boolean {
-  return typeof prisma.stockAdjustment?.groupBy === "function";
-}
-
-/** The three ledgers behind every pack's stock, for the admin stock page. */
-export async function reconcileStock(): Promise<Map<string, Reconciliation>> {
-  const [variants, receivedRows, soldRows, adjustedRows] = await Promise.all([
-    prisma.variant.findMany({ select: { id: true, stock: true } }),
-    prisma.stockReceiptItem.groupBy({ by: ["variantId"], _sum: { quantity: true } }),
-    prisma.orderItem.groupBy({
-      by: ["variantId"],
-      _sum: { quantity: true },
-      where: { order: { status: { not: "CANCELLED" } } },
-    }),
-    adjustmentsAvailable()
-      ? prisma.stockAdjustment.groupBy({ by: ["variantId"], _sum: { quantity: true } })
-      : Promise.resolve([] as { variantId: string; _sum: { quantity: number | null } }[]),
-  ]);
-
-  const received = new Map(receivedRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
-  const sold = new Map(soldRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
-  const adjusted = new Map(adjustedRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
-
-  return new Map(
-    variants.map((v) => {
-      const rec = received.get(v.id) ?? 0;
-      const sld = sold.get(v.id) ?? 0;
-      const adj = adjusted.get(v.id) ?? 0;
-      const expected = rec + adj - sld;
-      return [
-        v.id,
-        {
-          variantId: v.id,
-          received: rec,
-          sold: sld,
-          adjusted: adj,
-          stock: v.stock,
-          expected,
-          reconciles: expected === v.stock,
-        },
-      ];
-    })
+  const updates = products.flatMap((p) =>
+    p.variants
+      .map((v) => ({ v, want: availablePacks(p.stockGrams, packGrams(v.label)) }))
+      .filter(({ v, want }) => v.stock !== want)
+      .map(({ v, want }) => prisma.variant.update({ where: { id: v.id }, data: { stock: want } }))
   );
+  if (updates.length) await prisma.$transaction(updates);
+}
+
+/**
+ * Move bulk weight for a product and bring its pack counts back in line.
+ *
+ * The write is atomic (increment/decrement, not read-then-write), so a
+ * checkout committing at the same moment cannot be silently overwritten by a
+ * stale figure read a moment earlier.
+ */
+export async function moveGrams(deltas: Map<string, number>, _reason: string) {
+  const real = [...deltas.entries()].filter(([, g]) => g !== 0);
+  if (real.length === 0) return;
+
+  for (const [id, delta] of real) {
+    if (delta > 0) {
+      await prisma.product.update({
+        where: { id },
+        data: { stockGrams: { increment: delta } },
+      });
+      continue;
+    }
+    // Take weight off only if it is actually there; a shop cannot hold a
+    // negative amount, so anything short of that empties the product.
+    const { count } = await prisma.product.updateMany({
+      where: { id, stockGrams: { gte: -delta } },
+      data: { stockGrams: { decrement: -delta } },
+    });
+    if (count === 0) {
+      await prisma.product.update({ where: { id }, data: { stockGrams: 0 } });
+    }
+  }
+  await syncVariantStock(real.map(([id]) => id));
+}
+
+/** Set a product's weight outright — what a stock-take does. */
+export async function setGrams(productId: string, grams: number) {
+  await prisma.product.update({
+    where: { id: productId },
+    data: { stockGrams: Math.max(0, Math.round(grams)) },
+  });
+  await syncVariantStock([productId]);
 }
