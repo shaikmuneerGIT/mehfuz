@@ -199,6 +199,25 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
     outOfStock: data.products.filter((p) => liveGrams(p) === 0).length,
   };
 
+  /** Set a product's weight to exactly what its deliveries and sales imply. */
+  async function matchRecords(productId: string, grams: number) {
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put("/admin/stock-weights", { weights: [{ productId, grams }] });
+      setEdits((prev) => {
+        const next = { ...prev };
+        delete next[productId];
+        return next;
+      });
+      onSaved();
+    } catch {
+      setError("Could not update the stock.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function saveCounts() {
     if (dirty.length === 0) return;
     setSaving(true);
@@ -312,12 +331,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
           <thead>
             <tr className="border-b border-gold-500/30 bg-cream-50 text-xs uppercase tracking-wide text-brown-500">
               <th className="px-4 py-2 text-left font-medium">Product</th>
-              <th
-                className="px-3 py-2 text-right font-medium"
-                title="Deliveries recorded, plus any stock that was already on the shelf"
-              >
-                Received
-              </th>
+              <th className="px-3 py-2 text-right font-medium">Received</th>
               <th className="px-3 py-2 text-right font-medium">− Sold</th>
               <th className="px-3 py-2 text-right font-medium">= Left in stock</th>
               <th className="px-3 py-2 text-right font-medium">Value</th>
@@ -345,22 +359,23 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                         <span className="ml-2 text-xs text-brown-500">(hidden)</span>
                       )}
                     </td>
-                    <td
-                      className="px-3 py-2.5 text-right text-brown-700"
-                      title={
-                        p.openingGrams === 0
-                          ? undefined
-                          : `${grams(p.receivedGrams)} from recorded deliveries, plus ${grams(
-                              Math.abs(p.openingGrams)
-                            )} that was already on the shelf`
-                      }
-                    >
-                      {grams(p.receivedGrams + p.openingGrams)}
+                    <td className="px-3 py-2.5 text-right text-brown-700">
+                      {grams(p.receivedGrams)}
                     </td>
                     <td className="px-3 py-2.5 text-right text-brown-700">
                       {grams(p.soldGrams)}
                     </td>
                     <td className="px-3 py-2.5 text-right">
+                      {p.openingGrams !== 0 && !changed && (
+                        <span
+                          title={`Your records account for ${grams(
+                            Math.max(0, p.receivedGrams - p.soldGrams)
+                          )} — open the row to match them`}
+                          className="mr-1.5 font-bold text-maroon-700"
+                        >
+                          !
+                        </span>
+                      )}
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
                           left === 0
@@ -450,6 +465,28 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                             </div>
                           </div>
                         </div>
+                        {p.openingGrams !== 0 && (
+                          <div className="mt-3 rounded-lg border border-maroon-700/30 bg-maroon-700/5 px-3 py-2">
+                            <div className="text-xs text-brown-800">
+                              Your records account for{" "}
+                              <b>{grams(Math.max(0, p.receivedGrams - p.soldGrams))}</b> —{" "}
+                              {grams(p.receivedGrams)} received less {grams(p.soldGrams)} sold —
+                              but the stock is set to <b>{grams(p.stockGrams)}</b>.
+                            </div>
+                            <button
+                              onClick={() =>
+                                matchRecords(p.productId, Math.max(0, p.receivedGrams - p.soldGrams))
+                              }
+                              disabled={saving}
+                              className="mt-1.5 rounded-full bg-brown-950 px-4 py-1 text-xs font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
+                            >
+                              Match my records ({grams(Math.max(0, p.receivedGrams - p.soldGrams))})
+                            </button>
+                            <span className="ml-2 text-[11px] text-brown-500">
+                              Or type the real weight above if you genuinely hold more.
+                            </span>
+                          </div>
+                        )}
                         {p.soldGrams > 0 && (
                           <ProductSales productId={p.productId} productName={p.productName} />
                         )}
@@ -485,9 +522,9 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         </button>
       )}
       <p className="mt-2 text-xs text-brown-500">
-        Received − Sold always equals Left, because all three are weights. Received counts
-        your logged deliveries plus any stock that was already on the shelf before you
-        started recording them.
+        Received − Sold should equal Left. A row marked <b className="text-maroon-700">!</b>
+        holds more or less than its deliveries and sales explain — open it to match the
+        records, or set the real weight if you genuinely have a different amount.
       </p>
     </div>
   );
