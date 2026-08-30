@@ -102,7 +102,9 @@ function goldButton(href: string, label: string): string {
 }
 
 export function customerEmailHtml(order: OrderWithItems): string {
-  const isUnpaidUpi = order.paymentMethod === "UPI" && order.paymentStatus !== "PAID";
+  const isUnpaidUpi =
+    (order.paymentMethod === "UPI" || order.paymentMethod === "PAYU") &&
+    order.paymentStatus !== "PAID";
   const payUrl = `${SITE}/order-confirmed/${order.orderNumber}`;
   const shortUrl = `${SITE}/o/${order.orderNumber}`;
   const upiId = process.env.UPI_ID;
@@ -120,7 +122,7 @@ export function customerEmailHtml(order: OrderWithItems): string {
           ${goldButton(payUrl, `Complete Payment — ${formatInr(order.totalInr)}`)}
         </td></tr>
       </table>`
-    : order.paymentMethod === "UPI"
+    : order.paymentMethod !== "COD"
       ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #1fa85566;border-radius:8px;margin:16px 0 0;background:#f2fbf5;">
            <tr><td style="padding:12px 16px;font-size:13px;line-height:1.7;color:#14663a;">
              <b>Payment received ✅</b> — we've confirmed ${formatInr(order.totalInr)} against your order. It's now being packed, and we'll share dispatch details on WhatsApp.

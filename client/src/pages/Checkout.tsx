@@ -5,6 +5,7 @@ import { formatInr } from "../lib/format";
 import { api } from "../api/client";
 import { PageBanner } from "../components/PageBanner";
 import { CartThumb, cartLineImage } from "../components/CartThumb";
+import { startPayuCheckout } from "../lib/payu";
 
 interface ShopQuote {
   shippingEnabled: boolean;
@@ -49,10 +50,15 @@ export function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [upiConfig, setUpiConfig] = useState<UpiConfig | null>(null);
+  const [payuEnabled, setPayuEnabled] = useState(false);
   const [shipQuote, setShipQuote] = useState<ShopQuote | null>(null);
 
   useEffect(() => {
     api.get<UpiConfig>("/config/upi").then((res) => setUpiConfig(res.data)).catch(() => {});
+    api
+      .get<{ enabled: boolean }>("/config/payu")
+      .then((res) => setPayuEnabled(res.data.enabled))
+      .catch(() => {});
   }, []);
 
   // Re-quote delivery whenever the pincode is complete or the cart changes.
@@ -66,7 +72,11 @@ export function Checkout() {
 
   // UPI (QR + transaction reference) is the payment method; COD only
   // remains as a fallback while UPI is not yet configured on the server.
-  const paymentMethod: "COD" | "UPI" = upiConfig?.enabled ? "UPI" : "COD";
+  const paymentMethod: "COD" | "UPI" | "PAYU" = payuEnabled
+    ? "PAYU"
+    : upiConfig?.enabled
+      ? "UPI"
+      : "COD";
 
   if (lines.length === 0) {
     return <Navigate to="/shop" replace />;
@@ -92,6 +102,12 @@ export function Checkout() {
         paymentMethod,
         items: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
       });
+      if (paymentMethod === "PAYU") {
+        // Leaves the site for PayU's checkout; it posts back to the server,
+        // which confirms the payment and returns the customer to their order.
+        await startPayuCheckout(res.data.orderNumber);
+        return;
+      }
       navigate(`/order-confirmed/${res.data.orderNumber}`);
     } catch (err) {
       const message =
@@ -197,7 +213,20 @@ export function Checkout() {
 
             <div className="rounded-xl border border-gold-500/30 bg-cream-50/90 p-6 shadow-sm">
               <h2 className="font-serif mb-3 text-lg font-bold text-brown-950">Payment</h2>
-              {paymentMethod === "UPI" ? (
+              {paymentMethod === "PAYU" ? (
+                <div className="flex items-start gap-3 rounded-lg border border-gold-500 bg-cream-100/60 p-3">
+                  <span className="text-sm font-roboto">
+                    <span className="block font-semibold text-brown-950">
+                      Pay online — UPI, Card or Net Banking
+                    </span>
+                    <span className="text-brown-700">
+                      You'll be taken to our secure payment page to pay{" "}
+                      {formatInr(totalInr)}. Your order is confirmed automatically the moment
+                      the payment succeeds.
+                    </span>
+                  </span>
+                </div>
+              ) : paymentMethod === "UPI" ? (
                 <div className="flex items-start gap-3 rounded-lg border border-gold-500 bg-cream-100/60 p-3">
                   <span className="text-sm font-roboto">
                     <span className="block font-semibold text-brown-950">Pay by UPI (QR code)</span>

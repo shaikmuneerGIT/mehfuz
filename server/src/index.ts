@@ -12,6 +12,7 @@ import { ordersRouter } from "./routes/orders";
 import { adminRouter } from "./routes/admin";
 import { uploadsRouter, UPLOAD_DIR } from "./routes/uploads";
 import { chatRouter } from "./routes/chat";
+import { payuRouter } from "./routes/payu";
 import { errorHandler } from "./middleware/errors";
 
 if (!process.env.JWT_SECRET) {
@@ -86,6 +87,11 @@ app.get("/api/config/shop", async (req, res) => {
   });
 });
 
+// Online payment (PayU hosted checkout) availability.
+app.get("/api/config/payu", (_req, res) =>
+  res.json({ enabled: Boolean(process.env.PAYU_KEY && process.env.PAYU_SALT) })
+);
+
 // Admin-managed hero slideshow content; null means "use the built-in slides".
 app.get("/api/config/hero-slides", async (_req, res) => {
   const { prisma } = await import("./lib/prisma");
@@ -113,6 +119,7 @@ app.use("/api/orders", ordersRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/uploads", uploadsRouter);
 app.use("/api/chat", chatRouter);
+app.use("/api/payu", payuRouter);
 
 // Short order link for emails and messages: /o/MFZ26081234 opens the
 // customer's order page.

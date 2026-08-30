@@ -41,7 +41,13 @@ function orderLines(order: OrderWithItems): string {
     `Shipping: ${order.shippingInr === 0 ? "Free" : formatInr(order.shippingInr)}`,
     `Total: ${formatInr(order.totalInr)}`,
     ``,
-    `Payment: ${order.paymentMethod === "UPI" ? "UPI (prepaid)" : "Cash on Delivery"}`,
+    `Payment: ${
+      order.paymentMethod === "COD"
+        ? "Cash on Delivery"
+        : order.paymentMethod === "PAYU"
+          ? "Paid online (PayU)"
+          : "UPI (prepaid)"
+    }`,
     ``,
     `Delivery address:`,
     `  ${order.customerName}, ${order.phone}`,
@@ -60,8 +66,10 @@ function orderLines(order: OrderWithItems): string {
 export async function sendOrderNotifications(order: OrderWithItems): Promise<void> {
   if (!transport) return;
 
-  // An unpaid UPI order is not a confirmed order — stay silent for now.
-  if (order.paymentMethod === "UPI" && order.paymentStatus !== "PAID") return;
+  // An unpaid prepaid order (UPI QR or PayU) is not a confirmed order — stay
+  // silent until the money is confirmed.
+  const prepaid = order.paymentMethod === "UPI" || order.paymentMethod === "PAYU";
+  if (prepaid && order.paymentStatus !== "PAID") return;
 
   const from = `"Mehfuz Dry Fruits" <${SMTP_USER}>`;
   const body = orderLines(order);
@@ -86,7 +94,7 @@ export async function sendOrderNotifications(order: OrderWithItems): Promise<voi
           `Dear ${order.customerName},\n\n` +
           `Thank you for shopping with Mehfuz! Your order is confirmed.\n\n` +
           `${body}\n\n` +
-          (order.paymentMethod === "UPI"
+          (order.paymentMethod !== "COD"
             ? `Payment received — your order is being packed.\n\n`
             : `Please keep the amount ready — you pay when the order arrives.\n\n`) +
           `Questions? Call or WhatsApp +91 98489 18992.\n\nMehfuz — Premium Dry Fruits & Commodities\nhttps://mehfuzdryfruits.in`,

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { api } from "../api/client";
 import type { Order } from "../types";
@@ -7,6 +7,7 @@ import { formatInr } from "../lib/format";
 import { useCart } from "../context/CartContext";
 import { PageBanner } from "../components/PageBanner";
 import { FiCheckCircle } from "react-icons/fi";
+import { startPayuCheckout } from "../lib/payu";
 
 interface UpiConfig {
   enabled: boolean;
@@ -140,16 +141,27 @@ function UpiPaymentBox({ order }: { order: Order }) {
 export function OrderConfirmed() {
   const { orderNumber } = useParams<{ orderNumber: string }>();
   const [order, setOrder] = useState<Order | null>(null);
+  const [payuEnabled, setPayuEnabled] = useState(false);
+  const [payuBusy, setPayuBusy] = useState(false);
+  const [searchParams] = useSearchParams();
+  const paymentResult = searchParams.get("payment");
   const { clearCart } = useCart();
 
   const awaitingPayment =
-    !!order && order.paymentMethod === "UPI" && order.paymentStatus !== "PAID";
+    !!order && order.paymentMethod !== "COD" && order.paymentStatus !== "PAID";
 
   useEffect(() => {
     if (!orderNumber) return;
     api.get<Order>(`/orders/${orderNumber}`).then((res) => setOrder(res.data));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderNumber]);
+
+  useEffect(() => {
+    api
+      .get<{ enabled: boolean }>("/config/payu")
+      .then((res) => setPayuEnabled(res.data.enabled))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     clearCart();
@@ -178,10 +190,47 @@ export function OrderConfirmed() {
           Your order number is <strong className="font-roboto text-gold-700">#{orderNumber}</strong>
         </p>
 
+        {paymentResult === "failed" && (
+          <p className="mt-4 rounded-lg border border-maroon-700/40 bg-maroon-700/5 p-3 text-sm text-maroon-700">
+            The payment didn't go through. Nothing has been charged — you can try again below.
+          </p>
+        )}
+        {paymentResult === "pending" && (
+          <p className="mt-4 rounded-lg border border-gold-500/50 bg-cream-100 p-3 text-sm text-brown-800">
+            We're still confirming your payment with the bank. If money has left your account,
+            it will be confirmed shortly — our team is notified either way.
+          </p>
+        )}
+
+        {/* Online payment (PayU): pay now, or retry a failed attempt. */}
+        {order && payuEnabled && awaitingPayment && order.paymentMethod === "PAYU" && (
+          <div className="mt-6 rounded-xl border-2 border-gold-500 bg-cream-50/90 p-6 text-left shadow-sm">
+            <h3 className="font-serif mb-1 text-lg font-bold text-brown-950">
+              Complete Your Payment — {formatInr(order.totalInr)}
+            </h3>
+            <p className="mb-4 text-sm text-brown-700">
+              Pay securely by UPI, card or net banking. Your order is confirmed automatically
+              as soon as the payment succeeds.
+            </p>
+            <button
+              onClick={() => {
+                setPayuBusy(true);
+                startPayuCheckout(order.orderNumber).catch(() => setPayuBusy(false));
+              }}
+              disabled={payuBusy}
+              className="metallic-gold-btn rounded-full px-6 py-3 text-sm font-bold shadow-md disabled:opacity-60"
+            >
+              {payuBusy ? "Opening secure payment…" : `Pay ${formatInr(order.totalInr)} now`}
+            </button>
+          </div>
+        )}
+
         {/* While payment is pending the QR sits beside the summary on desktop
             so the customer can check what they're paying for as they pay. */}
         <div className={awaitingPayment ? "grid gap-6 lg:grid-cols-2 lg:items-start" : ""}>
-        {order && awaitingPayment && <UpiPaymentBox order={order} />}
+        {order && awaitingPayment && order.paymentMethod === "UPI" && (
+          <UpiPaymentBox order={order} />
+        )}
 
         {order && (
           <div className="mt-8 rounded-xl border border-gold-500/30 bg-cream-50/90 p-6 text-left shadow-sm font-roboto lg:mt-8">
@@ -216,11 +265,13 @@ export function OrderConfirmed() {
               {order.email && <p className="font-roboto">Email: {order.email}</p>}
               <p className="mt-2 font-roboto">
                 Payment:{" "}
-                {order.paymentMethod === "UPI"
-                  ? order.paymentStatus === "PAID"
-                    ? "Paid by UPI"
-                    : "UPI (awaiting confirmation)"
-                  : "Cash on Delivery"}
+                {order.paymentMethod === "COD"
+                  ? "Cash on Delivery"
+                  : order.paymentStatus === "PAID"
+                    ? order.paymentMethod === "PAYU"
+                      ? "Paid online ✓"
+                      : "Paid by UPI ✓"
+                    : "Awaiting payment confirmation"}
               </p>
             </div>
           </div>

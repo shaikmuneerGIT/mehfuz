@@ -31,7 +31,7 @@ const checkoutSchema = z.object({
   state: z.string().min(2),
   pincode: z.string().min(4).max(10),
   notes: z.string().optional(),
-  paymentMethod: z.enum(["COD", "UPI"]).optional(),
+  paymentMethod: z.enum(["COD", "UPI", "PAYU"]).optional(),
   items: z
     .array(
       z.object({
@@ -112,9 +112,10 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
         pincode: data.pincode,
         notes: data.notes || null,
         paymentMethod: data.paymentMethod ?? "COD",
-        // UPI orders start unpaid; the admin marks them paid after checking
-        // the money actually arrived. COD has no payment status.
-        paymentStatus: data.paymentMethod === "UPI" ? "UNPAID" : null,
+        // Prepaid orders (UPI QR or PayU) start unpaid: UPI is confirmed by
+        // the admin, PayU by its verified callback. COD has no payment status.
+        paymentStatus:
+          data.paymentMethod === "UPI" || data.paymentMethod === "PAYU" ? "UNPAID" : null,
         subtotalInr,
         shippingInr,
         totalInr,
