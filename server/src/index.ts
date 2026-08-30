@@ -76,13 +76,15 @@ app.get("/api/config/shop", async (req, res) => {
   const { loadShippingConfig, quoteShipping } = await import("./lib/shipping");
   const config = await loadShippingConfig();
   const subtotal = Number(req.query.subtotal ?? 0) || 0;
-  const quote = quoteShipping(config, subtotal, String(req.query.pincode ?? ""));
+  const weightKg = Number(req.query.weightKg ?? 0) || 0;
+  const quote = quoteShipping(config, subtotal, String(req.query.pincode ?? ""), weightKg);
   res.json({
     shippingEnabled: config.enabled,
     freeAbove: config.freeAbove,
-    baseFee: config.baseFee,
-    baseKm: config.baseKm,
-    perKmFee: config.perKmFee,
+    upto500gFee: config.upto500gFee,
+    upto1kgFee: config.upto1kgFee,
+    midPerKgFee: config.midPerKgFee,
+    bulkPerKgFee: config.bulkPerKgFee,
     quote,
   });
 });

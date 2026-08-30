@@ -84,9 +84,9 @@ chatRouter.post("/", chatLimiter, async (req, res) => {
     const deliveryFact = `We deliver ONLY within Hyderabad right now (customers outside Hyderabad should WhatsApp us to arrange something). ${
       !sc.enabled
         ? "Delivery is FREE on all Hyderabad orders at the moment."
-        : `The delivery fee is distance-based like food apps: ₹${sc.baseFee} covers the first ${sc.baseKm} km from our warehouse, then ₹${sc.perKmFee} per extra km${
+        : `Delivery is by DTDC courier and priced by parcel weight: ₹${sc.upto500gFee} up to 500 g, ₹${sc.upto1kgFee} up to 1 kg, ₹${sc.midPerKgFee} per kg for 2-3 kg, and ₹${sc.bulkPerKgFee} per kg above that${
             sc.freeAbove > 0 ? `; FREE on orders of ₹${sc.freeAbove} or more` : ""
-          }. The exact fee shows at checkout after entering the pincode.`
+          }. The exact fee shows at checkout.`
     }`;
     const response = await client.messages.create({
       model: "claude-haiku-4-5",

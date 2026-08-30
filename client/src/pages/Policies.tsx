@@ -213,10 +213,10 @@ export function ShippingPage() {
     >
       <h2>Delivery charges</h2>
       <p>
-        The delivery fee depends on the distance between our warehouse and your pincode — a
-        base charge for the first few kilometres, then a small per-km rate, shown exactly at
-        checkout before you pay. Orders above the free-delivery threshold shown at checkout
-        ship free.
+        Orders are shipped through <b>DTDC</b> and the delivery fee depends on the weight of
+        your parcel — ₹60 up to 500 g, ₹100 up to 1 kg, ₹80 per kg for 2–3 kg, and ₹60 per kg
+        above that. The exact amount is shown at checkout before you pay, and orders above the
+        free-delivery threshold shown there ship free.
       </p>
 
       <h2>Dispatch time</h2>

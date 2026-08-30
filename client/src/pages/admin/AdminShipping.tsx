@@ -6,15 +6,17 @@ interface ShippingConfig {
   enabled: boolean;
   warehousePincode: string;
   freeAbove: number;
-  baseFee: number;
-  baseKm: number;
-  perKmFee: number;
+  upto500gFee: number;
+  upto1kgFee: number;
+  midPerKgFee: number;
+  bulkPerKgFee: number;
   cityRadiusKm: number;
 }
 
 interface Quote {
   serviceable: boolean;
   feeInr: number;
+  weightKg: number;
   distanceKm: number | null;
   zone: string;
 }
@@ -72,9 +74,9 @@ export function AdminShipping() {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-brown-950">Shipping</h1>
         <p className="mt-1 text-sm text-brown-500">
-          Delivery is <b>within Hyderabad only</b>. The fee works like food-delivery apps: a
-          base charge covers the first few kilometres from your warehouse, then a per-km rate.
-          Pincodes beyond the delivery radius cannot place an order.
+          Delivery is <b>within Hyderabad only</b>, shipped by DTDC and charged by parcel
+          weight — the same slabs for the whole city, no distance component. Pincodes beyond
+          the delivery radius cannot place an order.
         </p>
       </div>
 
@@ -120,34 +122,45 @@ export function AdminShipping() {
             <span className="mt-1 block text-xs text-brown-500">0 = never free.</span>
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-brown-800">Base fee (₹)</span>
+            <span className="mb-1 block font-medium text-brown-800">Up to 500 g (₹)</span>
             <input
               type="number"
               min={0}
-              value={config.baseFee}
-              onChange={(e) => set("baseFee", Number(e.target.value || 0))}
+              value={config.upto500gFee}
+              onChange={(e) => set("upto500gFee", Number(e.target.value || 0))}
               className="input"
               disabled={!config.enabled}
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-brown-800">Base fee covers (km)</span>
+            <span className="mb-1 block font-medium text-brown-800">Up to 1 kg (₹)</span>
             <input
               type="number"
               min={0}
-              value={config.baseKm}
-              onChange={(e) => set("baseKm", Number(e.target.value || 0))}
+              value={config.upto1kgFee}
+              onChange={(e) => set("upto1kgFee", Number(e.target.value || 0))}
               className="input"
               disabled={!config.enabled}
             />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium text-brown-800">Per extra km (₹)</span>
+            <span className="mb-1 block font-medium text-brown-800">2–3 kg — per kg (₹)</span>
             <input
               type="number"
               min={0}
-              value={config.perKmFee}
-              onChange={(e) => set("perKmFee", Number(e.target.value || 0))}
+              value={config.midPerKgFee}
+              onChange={(e) => set("midPerKgFee", Number(e.target.value || 0))}
+              className="input"
+              disabled={!config.enabled}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium text-brown-800">Above 3 kg — per kg (₹)</span>
+            <input
+              type="number"
+              min={0}
+              value={config.bulkPerKgFee}
+              onChange={(e) => set("bulkPerKgFee", Number(e.target.value || 0))}
               className="input"
               disabled={!config.enabled}
             />
@@ -168,18 +181,11 @@ export function AdminShipping() {
         </div>
 
         <p className="rounded-lg bg-cream-50 p-3 text-xs text-brown-600">
-          Example with current settings: 10 km away ={" "}
-          <b>
-            {formatInr(
-              config.baseFee + Math.max(0, Math.ceil(10 - config.baseKm)) * config.perKmFee
-            )}
-          </b>
-          {" • "}20 km ={" "}
-          <b>
-            {formatInr(
-              config.baseFee + Math.max(0, Math.ceil(20 - config.baseKm)) * config.perKmFee
-            )}
-          </b>
+          With these settings: 250 g = <b>{formatInr(config.upto500gFee)}</b>
+          {" • "}1 kg = <b>{formatInr(config.upto1kgFee)}</b>
+          {" • "}2 kg = <b>{formatInr(2 * config.midPerKgFee)}</b>
+          {" • "}3 kg = <b>{formatInr(3 * config.midPerKgFee)}</b>
+          {" • "}5 kg = <b>{formatInr(5 * config.bulkPerKgFee)}</b>
           {config.freeAbove > 0 && <> • orders of {formatInr(config.freeAbove)}+ ship free</>}
         </p>
 
@@ -197,9 +203,10 @@ export function AdminShipping() {
             {testQuote &&
               (testQuote.serviceable ? (
                 <span className="text-sm text-brown-900">
-                  {testQuote.distanceKm !== null && <>≈ {testQuote.distanceKm} km — </>}
-                  <b>{testQuote.feeInr === 0 ? "FREE" : formatInr(testQuote.feeInr)}</b>
-                  <span className="text-brown-500"> (on a ₹500 cart)</span>
+                  Deliverable
+                  {testQuote.distanceKm !== null && (
+                    <span className="text-brown-500"> (≈{testQuote.distanceKm} km away)</span>
+                  )}
                 </span>
               ) : (
                 <span className="text-sm font-semibold text-maroon-700">
@@ -208,8 +215,8 @@ export function AdminShipping() {
               ))}
           </div>
           <p className="mt-2 text-[11px] text-brown-500">
-            Saved settings apply within a minute; the tester always uses the saved settings, so
-            save first, then test.
+            Checks whether a pincode is inside the delivery area. The fee itself depends on the
+            parcel weight, using the slabs above.
           </p>
         </div>
 

@@ -42,7 +42,7 @@ const checkoutSchema = z.object({
     .min(1),
 });
 
-import { loadShippingConfig, quoteShipping } from "../lib/shipping";
+import { loadShippingConfig, quoteShipping, cartWeightKg } from "../lib/shipping";
 
 ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   const parsed = checkoutSchema.safeParse(req.body);
@@ -88,7 +88,14 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   // Delivery is Hyderabad-only: the same quote shown at checkout decides
   // serviceability and the km-based fee here, so nobody can order past it.
   const shippingConfig = await loadShippingConfig();
-  const shippingQuote = quoteShipping(shippingConfig, subtotalInr, data.pincode);
+  // Weight comes from the real variants, never from the client.
+  const weightKg = cartWeightKg(
+    data.items.map((item) => ({
+      label: variants.find((v) => v.id === item.variantId)!.label,
+      quantity: item.quantity,
+    }))
+  );
+  const shippingQuote = quoteShipping(shippingConfig, subtotalInr, data.pincode, weightKg);
   if (!shippingQuote.serviceable) {
     return res.status(400).json({
       error:

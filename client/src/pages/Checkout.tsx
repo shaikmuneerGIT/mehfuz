@@ -6,11 +6,18 @@ import { api } from "../api/client";
 import { PageBanner } from "../components/PageBanner";
 import { CartThumb, cartLineImage } from "../components/CartThumb";
 import { startPayuCheckout } from "../lib/payu";
+import { cartWeightKg, formatWeight } from "../lib/weight";
 
 interface ShopQuote {
   shippingEnabled: boolean;
   freeAbove: number;
-  quote: { serviceable: boolean; feeInr: number; distanceKm: number | null; zone: string };
+  quote: {
+    serviceable: boolean;
+    feeInr: number;
+    weightKg: number;
+    distanceKm: number | null;
+    zone: string;
+  };
 }
 
 interface UpiConfig {
@@ -62,13 +69,17 @@ export function Checkout() {
   }, []);
 
   // Re-quote delivery whenever the pincode is complete or the cart changes.
+  const weightKg = cartWeightKg(lines);
+
   useEffect(() => {
     const pin = form.pincode.replace(/\D/g, "");
     api
-      .get<ShopQuote>("/config/shop", { params: { subtotal: subtotalInr, pincode: pin } })
+      .get<ShopQuote>("/config/shop", {
+        params: { subtotal: subtotalInr, pincode: pin, weightKg },
+      })
       .then((res) => setShipQuote(res.data))
       .catch(() => {});
-  }, [form.pincode, subtotalInr]);
+  }, [form.pincode, subtotalInr, weightKg]);
 
   // UPI (QR + transaction reference) is the payment method; COD only
   // remains as a fallback while UPI is not yet configured on the server.
@@ -314,7 +325,7 @@ export function Checkout() {
                       ? "—"
                       : shippingInr === 0
                         ? "Free"
-                        : `${formatInr(shippingInr)}${quote?.distanceKm != null ? ` (≈${quote.distanceKm} km)` : ""}`}
+                        : `${formatInr(shippingInr)} (${formatWeight(weightKg)})`}
                 </span>
               </div>
               <div className="mt-2 flex justify-between font-roboto text-base font-bold text-brown-950">

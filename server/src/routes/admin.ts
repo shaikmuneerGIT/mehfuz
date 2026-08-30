@@ -498,9 +498,10 @@ const shippingConfigSchema = z.object({
   enabled: z.boolean(),
   warehousePincode: z.string().regex(/^\d{6}$/, "6-digit pincode"),
   freeAbove: z.number().int().min(0).max(100000),
-  baseFee: z.number().int().min(0).max(5000),
-  baseKm: z.number().int().min(0).max(100),
-  perKmFee: z.number().int().min(0).max(1000),
+  upto500gFee: z.number().int().min(0).max(5000),
+  upto1kgFee: z.number().int().min(0).max(5000),
+  midPerKgFee: z.number().int().min(0).max(5000),
+  bulkPerKgFee: z.number().int().min(0).max(5000),
   cityRadiusKm: z.number().int().min(1).max(500),
 });
 

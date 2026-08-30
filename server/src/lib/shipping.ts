@@ -3,22 +3,23 @@ import fs from "node:fs";
 import { prisma } from "./prisma";
 
 /**
- * Hyderabad-only delivery with Zomato-style distance fares: a base fee covers
- * the first few kilometres from the warehouse, then a per-km charge. The
- * straight-line distance comes from a bundled table of geocoded Hyderabad
- * pincodes; anything beyond the city radius (or outside the table and not a
- * Hyderabad-prefixed pin) is not serviceable.
+ * Hyderabad-only delivery, priced by parcel weight on our DTDC slabs (no
+ * distance component). The bundled table of geocoded Hyderabad pincodes is
+ * still used to decide whether an address is serviceable at all.
  */
 export interface ShippingConfig {
   enabled: boolean;
   warehousePincode: string;
   /** Order value at/above which delivery is free (0 disables free delivery). */
   freeAbove: number;
-  /** Base fee covering the first `baseKm` kilometres. */
-  baseFee: number;
-  baseKm: number;
-  /** Charge per started km beyond `baseKm`. */
-  perKmFee: number;
+  /** Flat fee up to half a kilo. */
+  upto500gFee: number;
+  /** Flat fee above 500 g and up to 1 kg. */
+  upto1kgFee: number;
+  /** Per (rounded-up) kg above 1 kg and up to 3 kg. */
+  midPerKgFee: number;
+  /** Per (rounded-up) kg above 3 kg. */
+  bulkPerKgFee: number;
   /** Beyond this straight-line distance the order is not serviceable. */
   cityRadiusKm: number;
 }
@@ -27,9 +28,10 @@ export const DEFAULT_SHIPPING: ShippingConfig = {
   enabled: true,
   warehousePincode: "500061",
   freeAbove: 1499,
-  baseFee: 30,
-  baseKm: 4,
-  perKmFee: 8,
+  upto500gFee: 60,
+  upto1kgFee: 100,
+  midPerKgFee: 80,
+  bulkPerKgFee: 60,
   cityRadiusKm: 40,
 };
 
@@ -57,6 +59,27 @@ export async function saveShippingConfig(config: ShippingConfig): Promise<void> 
     create: { key: KEY, value },
   });
   cache = { config, at: Date.now() };
+}
+
+// ---- Parcel weight ----
+
+/** Pack labels that carry no weight ("1 unit") bill as a quarter kilo. */
+const DEFAULT_ITEM_KG = 0.25;
+
+/** "250g" → 0.25, "1kg" → 1, "1 gram" → 0.001. */
+export function parseWeightKg(label: string): number {
+  const m = label
+    .toLowerCase()
+    .replace(/[`'"]/g, "")
+    .match(/([\d.]+)\s*(kgs?|kilograms?|kilos?|gms?|grams?|g)\b/);
+  if (!m) return DEFAULT_ITEM_KG;
+  const n = parseFloat(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_ITEM_KG;
+  return m[2].startsWith("k") ? n : n / 1000;
+}
+
+export function cartWeightKg(items: { label: string; quantity: number }[]): number {
+  return items.reduce((kg, i) => kg + parseWeightKg(i.label) * i.quantity, 0);
 }
 
 // ---- Pincode coordinates (Hyderabad + surroundings, geocoded once) ----
@@ -91,29 +114,34 @@ function haversineKm(a: [number, number], b: [number, number]): number {
   return 2 * 6371 * Math.asin(Math.sqrt(h));
 }
 
-/** A handful of Hyderabad pins aren't in the geocode table; price them as a mid-city trip. */
+/** A handful of Hyderabad pins aren't in the geocode table; treat as in-city. */
 const FALLBACK_KM = 15;
 
 export interface ShippingQuote {
   serviceable: boolean;
   feeInr: number;
+  weightKg: number;
   distanceKm: number | null;
   zone: "city" | "free" | "disabled" | "outside" | "unknown";
 }
 
-function kmFee(config: ShippingConfig, km: number): number {
-  const extraKm = Math.max(0, Math.ceil(km - config.baseKm));
-  return config.baseFee + extraKm * config.perKmFee;
+/** DTDC slabs: ≤500 g flat, ≤1 kg flat, then per rounded-up kg. */
+export function weightFee(config: ShippingConfig, weightKg: number): number {
+  if (weightKg <= 0.5) return config.upto500gFee;
+  if (weightKg <= 1) return config.upto1kgFee;
+  const billedKg = Math.ceil(weightKg);
+  return weightKg <= 3 ? billedKg * config.midPerKgFee : billedKg * config.bulkPerKgFee;
 }
 
 export function quoteShipping(
   config: ShippingConfig,
   subtotalInr: number,
-  pincode: string | undefined
+  pincode: string | undefined,
+  weightKg = 0
 ): ShippingQuote {
   const pin = (pincode ?? "").replace(/\D/g, "");
   if (pin.length !== 6) {
-    return { serviceable: false, feeInr: 0, distanceKm: null, zone: "unknown" };
+    return { serviceable: false, feeInr: 0, weightKg, distanceKm: null, zone: "unknown" };
   }
 
   const pins = loadPins();
@@ -124,18 +152,24 @@ export function quoteShipping(
   if (warehouse && customer) {
     distanceKm = Math.round(haversineKm(warehouse, customer) * 10) / 10;
   } else if (/^500\d{3}$/.test(pin) || /^5015\d{2}$/.test(pin) || /^5011\d{2}$/.test(pin)) {
-    // Hyderabad-prefixed pin missing from the table: assume a mid-city trip.
+    // Hyderabad-prefixed pin missing from the table: treat as in-city.
     distanceKm = FALLBACK_KM;
   }
 
   if (distanceKm === null || distanceKm > config.cityRadiusKm) {
-    return { serviceable: false, feeInr: 0, distanceKm, zone: "outside" };
+    return { serviceable: false, feeInr: 0, weightKg, distanceKm, zone: "outside" };
   }
   if (!config.enabled) {
-    return { serviceable: true, feeInr: 0, distanceKm, zone: "disabled" };
+    return { serviceable: true, feeInr: 0, weightKg, distanceKm, zone: "disabled" };
   }
   if (config.freeAbove > 0 && subtotalInr >= config.freeAbove) {
-    return { serviceable: true, feeInr: 0, distanceKm, zone: "free" };
+    return { serviceable: true, feeInr: 0, weightKg, distanceKm, zone: "free" };
   }
-  return { serviceable: true, feeInr: kmFee(config, distanceKm), distanceKm, zone: "city" };
+  return {
+    serviceable: true,
+    feeInr: weightFee(config, weightKg),
+    weightKg,
+    distanceKm,
+    zone: "city",
+  };
 }

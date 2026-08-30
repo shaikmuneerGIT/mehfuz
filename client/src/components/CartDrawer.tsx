@@ -6,6 +6,7 @@ import { api } from "../api/client";
 import type { Product } from "../types";
 import { resolveProductImagePath } from "./ProductImage";
 import { CartThumb, cartLineImage } from "./CartThumb";
+import { cartWeightKg } from "../lib/weight";
 import { FiX, FiTrash2, FiShoppingBag, FiMinus, FiPlus, FiArrowRight } from "react-icons/fi";
 
 interface ShopQuote {
@@ -93,7 +94,9 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 
   useEffect(() => {
     api
-      .get<ShopQuote>("/config/shop", { params: { subtotal: subtotalInr } })
+      .get<ShopQuote>("/config/shop", {
+        params: { subtotal: subtotalInr, weightKg: cartWeightKg(lines) },
+      })
       .then((res) => setShop(res.data))
       .catch(() => {});
   }, [subtotalInr]);
@@ -263,7 +266,8 @@ export function CartDrawer({ open, onClose }: { open: boolean; onClose: () => vo
             </div>
             {!freeDelivery && shop && shop.freeAbove > 0 && (
               <p className="mt-1 text-[11px] text-brown-500">
-                Hyderabad delivery only. Free over {formatInr(shop.freeAbove)} — exact fee shows
+                Hyderabad delivery only. Free over {formatInr(shop.freeAbove)} — courier fee by
+                weight shows
                 at checkout from your pincode.
               </p>
             )}
