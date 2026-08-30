@@ -312,12 +312,11 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
           <thead>
             <tr className="border-b border-gold-500/30 bg-cream-50 text-xs uppercase tracking-wide text-brown-500">
               <th className="px-4 py-2 text-left font-medium">Product</th>
-              <th className="px-3 py-2 text-right font-medium">Received</th>
               <th
                 className="px-3 py-2 text-right font-medium"
-                title="Stock already on the shelf, or a hand count"
+                title="Deliveries recorded, plus any stock that was already on the shelf"
               >
-                + Opening
+                Received
               </th>
               <th className="px-3 py-2 text-right font-medium">− Sold</th>
               <th className="px-3 py-2 text-right font-medium">= Left in stock</th>
@@ -346,13 +345,17 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                         <span className="ml-2 text-xs text-brown-500">(hidden)</span>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 text-right text-brown-700">
-                      {grams(p.receivedGrams)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right text-brown-700">
-                      {p.openingGrams === 0
-                        ? "—"
-                        : `${p.openingGrams < 0 ? "−" : ""}${grams(Math.abs(p.openingGrams))}`}
+                    <td
+                      className="px-3 py-2.5 text-right text-brown-700"
+                      title={
+                        p.openingGrams === 0
+                          ? undefined
+                          : `${grams(p.receivedGrams)} from recorded deliveries, plus ${grams(
+                              Math.abs(p.openingGrams)
+                            )} that was already on the shelf`
+                      }
+                    >
+                      {grams(p.receivedGrams + p.openingGrams)}
                     </td>
                     <td className="px-3 py-2.5 text-right text-brown-700">
                       {grams(p.soldGrams)}
@@ -377,7 +380,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
 
                   {isOpen && (
                     <tr className="border-b border-gold-500/15 bg-cream-50/60">
-                      <td colSpan={6} className="px-4 py-3">
+                      <td colSpan={5} className="px-4 py-3">
                         <div className="flex flex-wrap items-end gap-6">
                           <label className="block">
                             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-brown-500">
@@ -463,7 +466,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             })}
             {products.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-brown-500">
+                <td colSpan={5} className="px-4 py-6 text-center text-brown-500">
                   No product matches “{query}”.
                 </td>
               </tr>
@@ -482,9 +485,9 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         </button>
       )}
       <p className="mt-2 text-xs text-brown-500">
-        Received + Opening − Sold always equals Left, because all four are weights. Pack
-        sizes cannot be added together — two 1kg packs and one 250g pack is 2.25 kg, not
-        "three".
+        Received − Sold always equals Left, because all three are weights. Received counts
+        your logged deliveries plus any stock that was already on the shelf before you
+        started recording them.
       </p>
     </div>
   );
