@@ -41,6 +41,8 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fillScope, setFillScope] = useState("ZEROS");
+  const [fillValue, setFillValue] = useState("");
 
   // A row's live value is whatever is typed, falling back to the saved count.
   function liveStock(r: StockRow): number {
@@ -67,6 +69,26 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   };
 
   const dirty = data.rows.filter((r) => liveStock(r) !== r.stock);
+
+  const productNames = [...new Set(data.rows.map((r) => r.productName))].sort((a, b) =>
+    a.localeCompare(b)
+  );
+
+  /** Type a number once and drop it into a whole group of boxes. */
+  function applyFill() {
+    const n = Number(fillValue);
+    if (!Number.isFinite(n) || n < 0) return;
+    const target = data.rows.filter((r) => {
+      if (fillScope === "ZEROS") return liveStock(r) === 0;
+      if (fillScope === "SHOWN") return rows.some((x) => x.variantId === r.variantId);
+      return r.productName === fillScope.slice(2);
+    });
+    setEdits((prev) => {
+      const next = { ...prev };
+      for (const r of target) next[r.variantId] = String(Math.floor(n));
+      return next;
+    });
+  }
 
   async function saveCounts() {
     if (dirty.length === 0) return;
@@ -155,6 +177,45 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
           What you type replaces the count the system worked out from deliveries and orders.
           Change as many rows as you like, then press Save — nothing changes until you do.
         </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gold-500/25 pt-3">
+          <span className="text-xs font-semibold uppercase tracking-wide text-brown-500">
+            Fill many at once
+          </span>
+          <select
+            value={fillScope}
+            onChange={(e) => setFillScope(e.target.value)}
+            className="rounded-lg border border-gold-500/40 bg-white px-2 py-1 text-sm"
+          >
+            <option value="ZEROS">every pack showing 0</option>
+            <option value="SHOWN">every pack listed below</option>
+            {productNames.map((name) => (
+              <option key={name} value={`P:${name}`}>
+                every pack of {name}
+              </option>
+            ))}
+          </select>
+          <span className="text-sm text-brown-700">to</span>
+          <input
+            type="number"
+            min={0}
+            value={fillValue}
+            onChange={(e) => setFillValue(e.target.value)}
+            placeholder="e.g. 10"
+            className="w-24 rounded-lg border border-gold-500/40 bg-white px-2 py-1 text-sm"
+          />
+          <span className="text-sm text-brown-700">units</span>
+          <button
+            onClick={applyFill}
+            disabled={fillValue.trim() === ""}
+            className="rounded-full border border-gold-500/60 bg-white px-4 py-1 text-sm font-semibold text-brown-800 hover:bg-cream-100 disabled:opacity-50"
+          >
+            Fill
+          </button>
+          <span className="text-xs text-brown-500">
+            Fills the boxes only — press Save to make it real.
+          </span>
+        </div>
       </div>
 
       <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -164,22 +225,24 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
           placeholder="Search product or pack…"
           className="input max-w-[260px]"
         />
+        <button
+          onClick={saveCounts}
+          disabled={saving || dirty.length === 0}
+          className="rounded-full bg-brown-950 px-5 py-2 text-sm font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-40"
+        >
+          {saving
+            ? "Saving…"
+            : dirty.length === 0
+              ? "Save stock"
+              : `Save ${dirty.length} change${dirty.length > 1 ? "s" : ""}`}
+        </button>
         {dirty.length > 0 && (
-          <>
-            <button
-              onClick={saveCounts}
-              disabled={saving}
-              className="rounded-full bg-brown-950 px-5 py-2 text-sm font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
-            >
-              {saving ? "Saving…" : `Save ${dirty.length} change${dirty.length > 1 ? "s" : ""}`}
-            </button>
-            <button
-              onClick={() => setEdits({})}
-              className="text-sm font-semibold text-brown-600 hover:underline"
-            >
-              Undo changes
-            </button>
-          </>
+          <button
+            onClick={() => setEdits({})}
+            className="text-sm font-semibold text-brown-600 hover:underline"
+          >
+            Undo changes
+          </button>
         )}
         {saved && <span className="text-sm font-semibold text-forest-950">Saved ✓</span>}
         {error && <span className="text-sm text-maroon-700">{error}</span>}
