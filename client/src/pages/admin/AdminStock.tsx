@@ -58,6 +58,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [units, setUnits] = useState<Record<string, "g" | "kg">>({});
+  const [showUntouched, setShowUntouched] = useState(false);
 
   /** A product is being counted once its weight box has been typed into. */
   function isCounted(p: ProductRow): boolean {
@@ -78,13 +79,25 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   }
 
   const q = query.trim().toLowerCase();
-  const products = q
-    ? data.products.filter(
-        (p) =>
-          p.productName.toLowerCase().includes(q) ||
-          p.packs.some((v) => v.label.toLowerCase().includes(q))
-      )
-    : data.products;
+  /**
+   * A product with nothing received, nothing sold and nothing on hand has no
+   * stock story to tell, so it only pads the table. It stays one click away,
+   * since that is where you go to stock it for the first time.
+   */
+  function isUntouched(p: ProductRow): boolean {
+    return p.receivedGrams === 0 && p.soldGrams === 0 && p.stockGrams === 0;
+  }
+
+  const untouched = data.products.filter(isUntouched);
+  const matches = (p: ProductRow) =>
+    !q ||
+    p.productName.toLowerCase().includes(q) ||
+    p.packs.some((v) => v.label.toLowerCase().includes(q));
+
+  // A search always looks everywhere; otherwise the quiet ones stay folded away.
+  const products = data.products.filter(
+    (p) => matches(p) && (q !== "" || showUntouched || !isUntouched(p))
+  );
 
   const dirty = data.products.filter(isCounted);
 
@@ -362,6 +375,16 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
           </tbody>
         </table>
       </div>
+      {untouched.length > 0 && !q && (
+        <button
+          onClick={() => setShowUntouched((v) => !v)}
+          className="mt-2 text-xs font-semibold text-gold-700 hover:underline"
+        >
+          {showUntouched
+            ? `Hide the ${untouched.length} product${untouched.length > 1 ? "s" : ""} with no stock history`
+            : `Show ${untouched.length} product${untouched.length > 1 ? "s" : ""} you have not stocked yet`}
+        </button>
+      )}
       <p className="mt-2 text-xs text-brown-500">
         Received + Opening − Sold always equals Left, because all four are weights. Pack
         sizes cannot be added together — two 1kg packs and one 250g pack is 2.25 kg, not
