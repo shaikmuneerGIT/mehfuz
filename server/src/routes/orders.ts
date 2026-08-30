@@ -277,6 +277,113 @@ ordersRouter.patch("/:id/amount", requireAdmin, async (req: AuthedRequest, res) 
   res.json(updated);
 });
 
+/**
+ * Replace what an order contains (admin) — a customer adds a pack over the
+ * phone, drops one, or the order was typed in wrong. Stock moves by the
+ * difference only, so re-saving an unchanged order is a no-op on inventory,
+ * and the totals are recomputed from the new lines.
+ *
+ * Prices come from the order's existing line for a pack it already had, so
+ * correcting quantities never silently re-prices what the customer agreed to;
+ * newly added packs are priced from the current catalogue.
+ */
+const orderItemsSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        variantId: z.string().min(1),
+        quantity: z.number().int().min(1).max(100),
+      })
+    )
+    .min(1)
+    .max(50),
+  // Leave out to keep the delivery fee already on the order.
+  shippingInr: z.number().int().min(0).max(100_000).optional(),
+});
+
+ordersRouter.put("/:id/items", requireAdmin, async (req: AuthedRequest, res) => {
+  const parsed = orderItemsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid order items" });
+
+  const order = await prisma.order.findUnique({
+    where: { id: req.params.id as string },
+    include: { items: true },
+  });
+  if (!order) return res.status(404).json({ error: "Order not found" });
+
+  // Merge duplicate lines for the same pack rather than rejecting them.
+  const wanted = new Map<string, number>();
+  for (const i of parsed.data.items) {
+    wanted.set(i.variantId, (wanted.get(i.variantId) ?? 0) + i.quantity);
+  }
+
+  const variants = await prisma.variant.findMany({
+    where: { id: { in: [...wanted.keys()] } },
+    include: { product: true },
+  });
+  if (variants.length !== wanted.size) {
+    return res.status(400).json({ error: "One of those packs no longer exists" });
+  }
+
+  const previousQty = new Map(order.items.map((i) => [i.variantId, i.quantity]));
+  const previousPrice = new Map(order.items.map((i) => [i.variantId, i.priceInr]));
+
+  // A cancelled order never held stock, so editing it must not hand any back.
+  const stockCounts = order.status === "CANCELLED" ? new Map<string, number>() : previousQty;
+
+  const lines = variants.map((v) => {
+    const quantity = wanted.get(v.id)!;
+    const priceInr = previousPrice.get(v.id) ?? v.priceInr;
+    return {
+      productId: v.productId,
+      variantId: v.id,
+      nameSnapshot: v.product.name,
+      labelSnapshot: v.label,
+      priceInr,
+      quantity,
+    };
+  });
+
+  const subtotalInr = lines.reduce((s, l) => s + l.priceInr * l.quantity, 0);
+  const shippingInr = parsed.data.shippingInr ?? order.shippingInr;
+
+  // Every variant that moves either way: the ones added and the ones dropped.
+  const touched = new Set([...wanted.keys(), ...stockCounts.keys()]);
+  const stockNow = await prisma.variant.findMany({
+    where: { id: { in: [...touched] } },
+    select: { id: true, stock: true },
+  });
+  const stockById = new Map(stockNow.map((v) => [v.id, v.stock]));
+
+  const stockUpdates = [...touched]
+    .map((variantId) => {
+      const delta = (wanted.get(variantId) ?? 0) - (stockCounts.get(variantId) ?? 0);
+      return { variantId, delta };
+    })
+    .filter((u) => u.delta !== 0)
+    .map((u) =>
+      prisma.variant.update({
+        where: { id: u.variantId },
+        // Floored at zero: stock can be behind reality, and an edit to an
+        // order must never be blocked by a count that was never taken.
+        data: { stock: Math.max(0, (stockById.get(u.variantId) ?? 0) - u.delta) },
+      })
+    );
+
+  const [, , updated] = await prisma.$transaction([
+    prisma.orderItem.deleteMany({ where: { orderId: order.id } }),
+    prisma.orderItem.createMany({ data: lines.map((l) => ({ ...l, orderId: order.id })) }),
+    prisma.order.update({
+      where: { id: order.id },
+      data: { subtotalInr, shippingInr, totalInr: subtotalInr + shippingInr },
+      include: { items: true },
+    }),
+    ...stockUpdates,
+  ]);
+
+  res.json(updated);
+});
+
 // Hard-delete an order (admin) — for test orders and junk. Items cascade.
 ordersRouter.delete("/:id", requireAdmin, async (req: AuthedRequest, res) => {
   const order = await prisma.order.findUnique({ where: { id: req.params.id as string } });

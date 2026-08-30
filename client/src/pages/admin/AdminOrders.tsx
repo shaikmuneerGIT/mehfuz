@@ -1,7 +1,246 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
-import type { Order } from "../../types";
+import type { Order, Product } from "../../types";
 import { formatInr } from "../../lib/format";
+
+interface DraftLine {
+  variantId: string;
+  name: string;
+  label: string;
+  priceInr: number;
+  quantity: number;
+}
+
+/**
+ * Change what an order contains: fix a quantity, drop a pack, add one the
+ * customer asked for on the phone. Existing packs keep the price the customer
+ * was charged; added packs are priced from the catalogue. Stock is corrected
+ * by the difference when saved.
+ */
+function OrderItemsEditor({
+  order,
+  onSaved,
+  onCancel,
+}: {
+  order: Order;
+  onSaved: (updated: Order) => void;
+  onCancel: () => void;
+}) {
+  const [lines, setLines] = useState<DraftLine[]>(() =>
+    order.items.map((i) => ({
+      variantId: i.variantId,
+      name: i.nameSnapshot,
+      label: i.labelSnapshot,
+      priceInr: i.priceInr,
+      quantity: i.quantity,
+    }))
+  );
+  const [products, setProducts] = useState<Product[]>([]);
+  const [addProductId, setAddProductId] = useState("");
+  const [addVariantId, setAddVariantId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<Product[]>("/admin/products")
+      .then((res) => setProducts(res.data))
+      .catch(() => {});
+  }, []);
+
+  const addProduct = products.find((p) => p.id === addProductId);
+
+  function setQuantity(variantId: string, quantity: number) {
+    setLines((prev) =>
+      prev.map((l) => (l.variantId === variantId ? { ...l, quantity: Math.max(1, quantity) } : l))
+    );
+  }
+
+  function removeLine(variantId: string) {
+    setLines((prev) => prev.filter((l) => l.variantId !== variantId));
+  }
+
+  function addPack() {
+    const variant = addProduct?.variants.find((v) => v.id === addVariantId);
+    if (!addProduct || !variant) return;
+    // Already on the order? Just bump it rather than creating a second line.
+    if (lines.some((l) => l.variantId === variant.id)) {
+      setQuantity(variant.id, (lines.find((l) => l.variantId === variant.id)?.quantity ?? 0) + 1);
+    } else {
+      setLines((prev) => [
+        ...prev,
+        {
+          variantId: variant.id,
+          name: addProduct.name,
+          label: variant.label,
+          priceInr: variant.priceInr,
+          quantity: 1,
+        },
+      ]);
+    }
+    setAddVariantId("");
+  }
+
+  const subtotalInr = lines.reduce((s, l) => s + l.priceInr * l.quantity, 0);
+  const totalInr = subtotalInr + order.shippingInr;
+
+  async function save() {
+    if (lines.length === 0) {
+      setError("An order needs at least one pack. Delete the order instead.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await api.put<Order>(`/orders/${order.id}/items`, {
+        items: lines.map((l) => ({ variantId: l.variantId, quantity: l.quantity })),
+      });
+      onSaved(res.data);
+    } catch (err) {
+      setError(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          "Could not save the changes."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-gold-500/40 bg-cream-50 p-4">
+      <div className="mb-3 text-sm font-semibold text-brown-900">Edit items</div>
+
+      <ul className="space-y-2">
+        {lines.map((l) => (
+          <li key={l.variantId} className="flex flex-wrap items-center gap-3">
+            <span className="min-w-[190px] flex-1 text-sm text-brown-900">
+              {l.name} <span className="text-brown-500">({l.label})</span>
+            </span>
+            <div className="inline-flex items-center rounded-md border border-gold-500/50 bg-white">
+              <button
+                onClick={() => setQuantity(l.variantId, l.quantity - 1)}
+                aria-label={`One less ${l.name}`}
+                className="px-2.5 py-1 text-brown-800 hover:bg-cream-100"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={1}
+                value={l.quantity}
+                onChange={(e) => setQuantity(l.variantId, Number(e.target.value || 1))}
+                aria-label={`Quantity of ${l.name} ${l.label}`}
+                className="w-14 border-x border-gold-500/40 py-1 text-center text-sm font-semibold text-brown-950"
+              />
+              <button
+                onClick={() => setQuantity(l.variantId, l.quantity + 1)}
+                aria-label={`One more ${l.name}`}
+                className="px-2.5 py-1 text-brown-800 hover:bg-cream-100"
+              >
+                +
+              </button>
+            </div>
+            <span className="w-24 text-right text-sm font-semibold text-brown-950">
+              {formatInr(l.priceInr * l.quantity)}
+            </span>
+            <button
+              onClick={() => removeLine(l.variantId)}
+              className="text-xs font-semibold text-maroon-700 hover:underline"
+            >
+              Remove
+            </button>
+          </li>
+        ))}
+        {lines.length === 0 && (
+          <li className="text-sm italic text-brown-500">No packs left — add one below.</li>
+        )}
+      </ul>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-gold-500/25 pt-3">
+        <select
+          value={addProductId}
+          onChange={(e) => {
+            setAddProductId(e.target.value);
+            setAddVariantId("");
+          }}
+          className="rounded-lg border border-gold-500/40 px-2 py-1 text-sm"
+        >
+          <option value="">Add a product…</option>
+          {products.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        {addProduct && (
+          <select
+            value={addVariantId}
+            onChange={(e) => setAddVariantId(e.target.value)}
+            className="rounded-lg border border-gold-500/40 px-2 py-1 text-sm"
+          >
+            <option value="">Pack size…</option>
+            {addProduct.variants.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.label} — {formatInr(v.priceInr)}
+              </option>
+            ))}
+          </select>
+        )}
+        {addVariantId && (
+          <button
+            onClick={addPack}
+            className="rounded-full border border-gold-500/60 bg-white px-4 py-1 text-sm font-semibold text-brown-800 hover:bg-cream-100"
+          >
+            + Add
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3 border-t border-gold-500/25 pt-3 text-sm">
+        <div className="flex justify-between text-brown-700">
+          <span>Items</span>
+          <span>{formatInr(subtotalInr)}</span>
+        </div>
+        <div className="flex justify-between text-brown-700">
+          <span>Delivery</span>
+          <span>{order.shippingInr === 0 ? "Free" : formatInr(order.shippingInr)}</span>
+        </div>
+        <div className="mt-1 flex justify-between font-bold text-brown-950">
+          <span>New total</span>
+          <span>
+            {formatInr(totalInr)}
+            {totalInr !== order.totalInr && (
+              <span className="ml-2 text-xs font-normal text-brown-500">
+                was {formatInr(order.totalInr)}
+              </span>
+            )}
+          </span>
+        </div>
+      </div>
+
+      {error && <p className="mt-2 text-sm text-maroon-700">{error}</p>}
+
+      <div className="mt-3 flex items-center gap-3">
+        <button
+          onClick={save}
+          disabled={saving}
+          className="rounded-full bg-brown-950 px-5 py-2 text-sm font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
+        >
+          {saving ? "Saving…" : "Save changes"}
+        </button>
+        <button
+          onClick={onCancel}
+          className="text-sm font-semibold text-brown-600 hover:underline"
+        >
+          Cancel
+        </button>
+        <span className="text-xs text-brown-500">
+          Stock is adjusted by the difference when you save.
+        </span>
+      </div>
+    </div>
+  );
+}
 
 const STATUSES = ["PENDING", "CONFIRMED", "PACKED", "SHIPPED", "DELIVERED", "CANCELLED"];
 
@@ -21,6 +260,7 @@ export function AdminOrders() {
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [editingAmount, setEditingAmount] = useState<string | null>(null);
   const [amountDraft, setAmountDraft] = useState("");
+  const [editingItems, setEditingItems] = useState<string | null>(null);
 
   function load() {
     setLoading(true);
@@ -270,21 +510,40 @@ export function AdminOrders() {
                     Message customer on WhatsApp
                   </a>
                   <button
+                    onClick={() => setEditingItems(editingItems === o.id ? null : o.id)}
+                    className="mb-2 ml-3 text-xs font-semibold text-gold-700 hover:underline"
+                  >
+                    {editingItems === o.id ? "Close editor" : "Edit items"}
+                  </button>
+                  <button
                     onClick={() => removeOrder(o.id, o.orderNumber)}
                     className="mb-2 ml-3 text-xs font-semibold text-maroon-700 hover:underline"
                   >
                     Delete order
                   </button>
-                  <ul className="space-y-1">
-                    {o.items.map((item) => (
-                      <li key={item.id} className="flex justify-between">
-                        <span>
-                          {item.nameSnapshot} ({item.labelSnapshot}) × {item.quantity}
-                        </span>
-                        <span>{formatInr(item.priceInr * item.quantity)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  {editingItems === o.id ? (
+                    <OrderItemsEditor
+                      order={o}
+                      onCancel={() => setEditingItems(null)}
+                      onSaved={(updated) => {
+                        setOrders((prev) =>
+                          prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x))
+                        );
+                        setEditingItems(null);
+                      }}
+                    />
+                  ) : (
+                    <ul className="space-y-1">
+                      {o.items.map((item) => (
+                        <li key={item.id} className="flex justify-between">
+                          <span>
+                            {item.nameSnapshot} ({item.labelSnapshot}) × {item.quantity}
+                          </span>
+                          <span>{formatInr(item.priceInr * item.quantity)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
             </div>

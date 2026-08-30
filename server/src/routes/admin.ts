@@ -356,6 +356,44 @@ adminRouter.get("/stock-overview", async (_req, res) => {
   });
 });
 
+/**
+ * Set the counted stock for one or more packs directly. Deliveries and sales
+ * keep stock moving day to day, but a physical stock-take is the source of
+ * truth — this lets the owner type what is actually on the shelf.
+ */
+const stockCountsSchema = z.object({
+  counts: z
+    .array(
+      z.object({
+        variantId: z.string().min(1),
+        stock: z.number().int().min(0).max(100000),
+      })
+    )
+    .min(1)
+    .max(500),
+});
+
+adminRouter.put("/stock-counts", async (req, res) => {
+  const parsed = stockCountsSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid stock counts" });
+
+  // Ignore ids that no longer exist rather than failing the whole save.
+  const known = await prisma.variant.findMany({
+    where: { id: { in: parsed.data.counts.map((c) => c.variantId) } },
+    select: { id: true },
+  });
+  const knownIds = new Set(known.map((v) => v.id));
+  const updates = parsed.data.counts.filter((c) => knownIds.has(c.variantId));
+
+  await prisma.$transaction(
+    updates.map((c) =>
+      prisma.variant.update({ where: { id: c.variantId }, data: { stock: c.stock } })
+    )
+  );
+
+  res.json({ updated: updates.length });
+});
+
 // Deleting a receipt also takes back the stock it added, so inventory keeps
 // matching the deliveries actually recorded. Stock is floored at zero — units
 // already sold can't be un-sold.

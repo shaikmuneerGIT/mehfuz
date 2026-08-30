@@ -29,10 +29,66 @@ interface StockOverview {
   };
 }
 
-/** Current stock for every pack, reconciled against deliveries and orders. */
-function StockOverviewTable({ data }: { data: StockOverview }) {
+/**
+ * Current stock for every pack. The count is editable: deliveries and sales
+ * move it automatically, but a physical stock-take always wins, so the owner
+ * can type what is really on the shelf and save.
+ */
+function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: () => void }) {
   const [showAll, setShowAll] = useState(false);
-  const rows = showAll ? data.rows : data.rows.slice(0, 12);
+  const [query, setQuery] = useState("");
+  const [edits, setEdits] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // A row's live value is whatever is typed, falling back to the saved count.
+  function liveStock(r: StockRow): number {
+    const typed = edits[r.variantId];
+    if (typed === undefined) return r.stock;
+    const n = Number(typed);
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+  }
+
+  const q = query.trim().toLowerCase();
+  const matching = q
+    ? data.rows.filter(
+        (r) => r.productName.toLowerCase().includes(q) || r.label.toLowerCase().includes(q)
+      )
+    : data.rows;
+  const rows = showAll || q ? matching : matching.slice(0, 12);
+
+  // Totals follow what's on screen, so an edit's effect is visible before saving.
+  const totals = {
+    unitsInStock: data.rows.reduce((s, r) => s + liveStock(r), 0),
+    stockValueInr: data.rows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
+    outOfStock: data.rows.filter((r) => liveStock(r) === 0).length,
+    lowStock: data.rows.filter((r) => liveStock(r) > 0 && liveStock(r) <= 5).length,
+  };
+
+  const dirty = data.rows.filter((r) => liveStock(r) !== r.stock);
+
+  async function saveCounts() {
+    if (dirty.length === 0) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.put("/admin/stock-counts", {
+        counts: dirty.map((r) => ({ variantId: r.variantId, stock: liveStock(r) })),
+      });
+      setEdits({});
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+      onSaved();
+    } catch (err) {
+      setError(
+        (err as { response?: { data?: { error?: string } } })?.response?.data?.error ??
+          "Could not save the stock counts."
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="mb-8">
@@ -42,7 +98,7 @@ function StockOverviewTable({ data }: { data: StockOverview }) {
             Units in stock
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {data.totals.unitsInStock}
+            {totals.unitsInStock}
           </div>
         </div>
         <div>
@@ -66,29 +122,67 @@ function StockOverviewTable({ data }: { data: StockOverview }) {
             Stock value
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {formatInr(data.totals.stockValueInr)}
+            {formatInr(totals.stockValueInr)}
           </div>
         </div>
-        {data.totals.outOfStock > 0 && (
+        {totals.outOfStock > 0 && (
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
               Out of stock
             </div>
             <div className="font-display text-lg font-bold text-maroon-700">
-              {data.totals.outOfStock}
+              {totals.outOfStock}
             </div>
           </div>
         )}
-        {data.totals.lowStock > 0 && (
+        {totals.lowStock > 0 && (
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
               Low stock
             </div>
             <div className="font-display text-lg font-bold text-gold-700">
-              {data.totals.lowStock}
+              {totals.lowStock}
             </div>
           </div>
         )}
+      </div>
+
+      <div className="mb-3 rounded-xl border border-gold-500/30 bg-cream-50 px-4 py-3">
+        <div className="text-sm font-semibold text-brown-900">
+          Showing zero? Type the real number in the “In stock” box.
+        </div>
+        <p className="mt-1 text-xs text-brown-600">
+          What you type replaces the count the system worked out from deliveries and orders.
+          Change as many rows as you like, then press Save — nothing changes until you do.
+        </p>
+      </div>
+
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search product or pack…"
+          className="input max-w-[260px]"
+        />
+        {dirty.length > 0 && (
+          <>
+            <button
+              onClick={saveCounts}
+              disabled={saving}
+              className="rounded-full bg-brown-950 px-5 py-2 text-sm font-semibold text-gold-300 hover:bg-brown-900 disabled:opacity-60"
+            >
+              {saving ? "Saving…" : `Save ${dirty.length} change${dirty.length > 1 ? "s" : ""}`}
+            </button>
+            <button
+              onClick={() => setEdits({})}
+              className="text-sm font-semibold text-brown-600 hover:underline"
+            >
+              Undo changes
+            </button>
+          </>
+        )}
+        {saved && <span className="text-sm font-semibold text-forest-950">Saved ✓</span>}
+        {error && <span className="text-sm text-maroon-700">{error}</span>}
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gold-500/30 bg-white">
@@ -104,49 +198,70 @@ function StockOverviewTable({ data }: { data: StockOverview }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.variantId} className="border-b border-gold-500/15 last:border-0">
-                <td className="px-4 py-2 text-brown-900">
-                  {r.productName}
-                  {!r.productActive && (
-                    <span className="ml-2 text-xs text-brown-500">(hidden)</span>
-                  )}
-                </td>
-                <td className="px-3 py-2 text-brown-700">{r.label}</td>
-                <td className="px-3 py-2 text-right">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-bold ${
-                      r.stock === 0
-                        ? "bg-maroon-700 text-white"
-                        : r.stock <= 5
-                          ? "bg-maroon-700/10 text-maroon-700"
-                          : "text-brown-900"
-                    }`}
-                  >
-                    {r.stock}
-                  </span>
-                </td>
-                <td className="px-3 py-2 text-right text-brown-700">{r.sold}</td>
-                <td className="px-3 py-2 text-right text-brown-700">{r.received}</td>
-                <td className="px-3 py-2 text-right text-brown-900">
-                  {formatInr(r.stockValueInr)}
+            {rows.map((r) => {
+              const value = liveStock(r);
+              const changed = value !== r.stock;
+              return (
+                <tr
+                  key={r.variantId}
+                  className={`border-b border-gold-500/15 last:border-0 ${
+                    changed ? "bg-gold-500/10" : ""
+                  }`}
+                >
+                  <td className="px-4 py-2 text-brown-900">
+                    {r.productName}
+                    {!r.productActive && (
+                      <span className="ml-2 text-xs text-brown-500">(hidden)</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-brown-700">{r.label}</td>
+                  <td className="px-3 py-2 text-right">
+                    <input
+                      type="number"
+                      min={0}
+                      value={edits[r.variantId] ?? String(r.stock)}
+                      onChange={(e) =>
+                        setEdits((prev) => ({ ...prev, [r.variantId]: e.target.value }))
+                      }
+                      onFocus={(e) => e.target.select()}
+                      aria-label={`Stock for ${r.productName} ${r.label}`}
+                      className={`w-20 rounded-md border px-2 py-1 text-right text-sm font-semibold ${
+                        value === 0
+                          ? "border-maroon-700/50 bg-maroon-700/5 text-maroon-700"
+                          : "border-gold-500/40 bg-white text-brown-950"
+                      }`}
+                    />
+                  </td>
+                  <td className="px-3 py-2 text-right text-brown-700">{r.sold}</td>
+                  <td className="px-3 py-2 text-right text-brown-700">{r.received}</td>
+                  <td className="px-3 py-2 text-right text-brown-900">
+                    {formatInr(value * r.priceInr)}
+                  </td>
+                </tr>
+              );
+            })}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-6 text-center text-brown-500">
+                  No pack matches “{query}”.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
-      {data.rows.length > 12 && (
+      {!q && matching.length > 12 && (
         <button
           onClick={() => setShowAll((v) => !v)}
           className="mt-2 text-xs font-semibold text-gold-700 hover:underline"
         >
-          {showAll ? "Show fewer" : `Show all ${data.rows.length} packs`}
+          {showAll ? "Show fewer" : `Show all ${matching.length} packs`}
         </button>
       )}
       <p className="mt-2 text-xs text-brown-500">
         Sold counts every pack in non-cancelled orders. Received counts deliveries entered
-        below. Stock updates automatically on each sale and delivery.
+        below. Stock drops automatically on each sale and rises on each delivery — edit it
+        here whenever the shelf says something different.
       </p>
     </div>
   );
@@ -197,7 +312,7 @@ The units it added will be removed from stock again, and its cost will no longer
     <div>
       <h1 className="font-display mb-4 text-2xl font-bold text-brown-950">Stock</h1>
 
-      {overview && <StockOverviewTable data={overview} />}
+      {overview && <StockOverviewTable data={overview} onSaved={load} />}
 
       <div className="mb-6 flex items-center justify-between">
         <div>
