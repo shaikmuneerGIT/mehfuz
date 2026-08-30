@@ -402,6 +402,47 @@ adminRouter.get("/stock-overview", async (_req, res) => {
 });
 
 /**
+ * Where a product's sold weight went: the orders that consumed it, newest
+ * first. "Sold 250 g" is not an answer on its own — the owner needs to see
+ * whose order it was.
+ */
+adminRouter.get("/stock-sales/:productId", async (req, res) => {
+  const items = await prisma.orderItem.findMany({
+    where: { productId: req.params.productId as string },
+    include: {
+      order: {
+        select: {
+          orderNumber: true,
+          customerName: true,
+          phone: true,
+          status: true,
+          paymentStatus: true,
+          createdAt: true,
+        },
+      },
+    },
+    orderBy: { order: { createdAt: "desc" } },
+    take: 100,
+  });
+
+  res.json(
+    items.map((i) => ({
+      orderNumber: i.order.orderNumber,
+      customerName: i.order.customerName,
+      phone: i.order.phone,
+      status: i.order.status,
+      paymentStatus: i.order.paymentStatus,
+      createdAt: i.order.createdAt,
+      label: i.labelSnapshot,
+      quantity: i.quantity,
+      grams: packGrams(i.labelSnapshot) * i.quantity,
+      // A cancelled order is shown but does not count towards sold weight.
+      countsTowardsSold: i.order.status !== "CANCELLED",
+    }))
+  );
+});
+
+/**
  * A physical stock-take: the owner states how much of a product is actually
  * there, as a weight. Weight is the only unambiguous way to say it — asking
  * for a count of each pack size cannot work, because 1 kg IS four 250g packs

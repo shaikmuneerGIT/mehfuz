@@ -45,6 +45,99 @@ function grams(g: number): string {
   return g < 1000 ? `${g} g` : `${Number((g / 1000).toFixed(3))} kg`;
 }
 
+interface SaleRow {
+  orderNumber: string;
+  customerName: string;
+  phone: string;
+  status: string;
+  paymentStatus: string | null;
+  createdAt: string;
+  label: string;
+  quantity: number;
+  grams: number;
+  countsTowardsSold: boolean;
+}
+
+/** Which orders took a product's sold weight — loaded when a row is opened. */
+function ProductSales({ productId, productName }: { productId: string; productName: string }) {
+  const [sales, setSales] = useState<SaleRow[] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    api
+      .get<SaleRow[]>(`/admin/stock-sales/${productId}`)
+      .then((res) => live && setSales(res.data))
+      .catch(() => live && setSales([]));
+    return () => {
+      live = false;
+    };
+  }, [productId]);
+
+  if (sales === null) {
+    return <div className="mt-3 text-xs text-brown-500">Loading orders…</div>;
+  }
+  if (sales.length === 0) {
+    return (
+      <div className="mt-3 text-xs text-brown-500">
+        No one has ordered {productName} yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3">
+      <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-brown-500">
+        Who ordered it
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gold-500/25 bg-white">
+        <table className="w-full text-xs">
+          <tbody>
+            {sales.map((sale, i) => (
+              <tr
+                key={`${sale.orderNumber}-${sale.label}-${i}`}
+                className="border-b border-gold-500/15 last:border-0"
+              >
+                <td className="px-3 py-1.5 font-mono text-brown-700">{sale.orderNumber}</td>
+                <td className="px-3 py-1.5 font-semibold text-brown-900">
+                  {sale.customerName}
+                </td>
+                <td className="px-3 py-1.5 text-brown-500">{sale.phone}</td>
+                <td className="px-3 py-1.5 text-brown-600">
+                  {new Date(sale.createdAt).toLocaleDateString("en-IN", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="px-3 py-1.5 text-right text-brown-800">
+                  {sale.label} × {sale.quantity}
+                </td>
+                <td className="px-3 py-1.5 text-right font-semibold text-brown-950">
+                  {sale.grams < 1000
+                    ? `${sale.grams} g`
+                    : `${Number((sale.grams / 1000).toFixed(3))} kg`}
+                </td>
+                <td className="px-3 py-1.5 text-right">
+                  {sale.countsTowardsSold ? (
+                    <span className="text-brown-500">{sale.status}</span>
+                  ) : (
+                    <span
+                      title="Cancelled orders do not count towards sold weight"
+                      className="text-maroon-700"
+                    >
+                      CANCELLED
+                    </span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Stock is bulk weight; pack sizes are cut from it. So each product is one
  * line in kilos, and its pack sizes underneath show what that weight can
@@ -354,6 +447,9 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                             </div>
                           </div>
                         </div>
+                        {p.soldGrams > 0 && (
+                          <ProductSales productId={p.productId} productName={p.productName} />
+                        )}
                         <p className="mt-2 text-[11px] text-brown-500">
                           Those pack sizes are alternatives, not separate piles — 1 kg is four
                           250g packs <i>or</i> two 500g <i>or</i> one 1kg, whichever customers
