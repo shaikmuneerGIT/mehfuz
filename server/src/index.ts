@@ -245,7 +245,44 @@ async function ensureNewTables() {
   );
 }
 
+/**
+ * Stock that predates the delivery records — whatever was already on the shelf
+ * when this shop started recording deliveries — has nothing to explain it, so
+ * `received + adjusted - sold` would never equal it. Book it once as opening
+ * stock so the stock page adds up from the very first load.
+ *
+ * Guarded by a Setting rather than by "is anything drifting", so a real
+ * discrepancy appearing later is surfaced on the stock page instead of being
+ * quietly absorbed on the next restart.
+ */
+async function bookOpeningStock() {
+  const { prisma } = await import("./lib/prisma");
+  const { reconcileStock, adjustmentsAvailable } = await import("./lib/stock");
+  const KEY = "openingStockBooked";
+
+  if (!adjustmentsAvailable()) return;
+  if (await prisma.setting.findUnique({ where: { key: KEY } })) return;
+
+  const drifting = [...(await reconcileStock()).values()].filter((r) => !r.reconciles);
+  if (drifting.length > 0) {
+    await prisma.$transaction(
+      drifting.map((r) =>
+        prisma.stockAdjustment.create({
+          data: {
+            variantId: r.variantId,
+            quantity: r.stock - r.expected,
+            reason: "opening stock (before deliveries were recorded)",
+          },
+        })
+      )
+    );
+  }
+  await prisma.setting.create({ data: { key: KEY, value: new Date().toISOString() } });
+  console.log(`Opening stock booked for ${drifting.length} pack(s).`);
+}
+
 ensureNewTables()
+  .then(bookOpeningStock)
   .catch((err) => console.error("Table ensure failed:", err))
   .finally(() => {
     app.listen(PORT, () => {

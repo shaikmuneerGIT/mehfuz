@@ -99,6 +99,16 @@ export interface Reconciliation {
   reconciles: boolean;
 }
 
+/**
+ * True once the deployed Prisma client knows about StockAdjustment. The server
+ * runs a generated client, so a deploy that ships new code before the
+ * regenerated client would otherwise crash every stock query — better to show
+ * the page without adjustments than to show nothing at all.
+ */
+export function adjustmentsAvailable(): boolean {
+  return typeof prisma.stockAdjustment?.groupBy === "function";
+}
+
 /** The three ledgers behind every pack's stock, for the admin stock page. */
 export async function reconcileStock(): Promise<Map<string, Reconciliation>> {
   const [variants, receivedRows, soldRows, adjustedRows] = await Promise.all([
@@ -109,7 +119,9 @@ export async function reconcileStock(): Promise<Map<string, Reconciliation>> {
       _sum: { quantity: true },
       where: { order: { status: { not: "CANCELLED" } } },
     }),
-    prisma.stockAdjustment.groupBy({ by: ["variantId"], _sum: { quantity: true } }),
+    adjustmentsAvailable()
+      ? prisma.stockAdjustment.groupBy({ by: ["variantId"], _sum: { quantity: true } })
+      : Promise.resolve([] as { variantId: string; _sum: { quantity: number | null } }[]),
   ]);
 
   const received = new Map(receivedRows.map((r) => [r.variantId, r._sum.quantity ?? 0]));
