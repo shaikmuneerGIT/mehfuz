@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import type { Product, StockReceipt } from "../../types";
 import { formatInr } from "../../lib/format";
@@ -39,7 +39,7 @@ interface StockOverview {
  * can type what is really on the shelf and save.
  */
 function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: () => void }) {
-  const [showAll, setShowAll] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -76,14 +76,44 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         (r) => r.productName.toLowerCase().includes(q) || r.label.toLowerCase().includes(q)
       )
     : data.rows;
-  const rows = showAll || q ? matching : matching.slice(0, 12);
+  const rows = matching;
 
-  // Totals follow what's on screen, so an edit's effect is visible before saving.
+  /**
+   * One line per product rather than per pack: the owner thinks in products
+   * ("how much cashew is left"), not in 250g/500g/1kg rows. Each product's
+   * pack sizes are still there, one click away, because that is where a count
+   * actually gets corrected.
+   */
+  const groups = [...new Set(rows.map((r) => r.productName))]
+    .sort((a, b) => a.localeCompare(b))
+    .map((name) => {
+      const groupRows = rows
+        .filter((r) => r.productName === name)
+        .sort((a, b) => a.priceInr - b.priceInr);
+      return {
+        name,
+        rows: groupRows,
+        productActive: groupRows[0]?.productActive ?? true,
+        received: groupRows.reduce((s, r) => s + r.received, 0),
+        sold: groupRows.reduce((s, r) => s + r.sold, 0),
+        left: groupRows.reduce((s, r) => s + liveStock(r), 0),
+        value: groupRows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
+      };
+    });
+
+  // Totals follow what's on screen, so an edit's effect is visible before
+  // saving. Out-of-stock counts whole products, matching the table's rows —
+  // a product with a sold-out 250g but stock in 1kg is not out of stock.
+  const stockByProduct = new Map<string, number>();
+  for (const r of data.rows) {
+    stockByProduct.set(r.productName, (stockByProduct.get(r.productName) ?? 0) + liveStock(r));
+  }
+  const productStocks = [...stockByProduct.values()];
   const totals = {
     unitsInStock: data.rows.reduce((s, r) => s + liveStock(r), 0),
     stockValueInr: data.rows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
-    outOfStock: data.rows.filter((r) => liveStock(r) === 0).length,
-    lowStock: data.rows.filter((r) => liveStock(r) > 0 && liveStock(r) <= 5).length,
+    outOfStock: productStocks.filter((n) => n === 0).length,
+    lowStock: productStocks.filter((n) => n > 0 && n <= 5).length,
   };
 
   const dirty = data.rows.filter((r) => liveStock(r) !== r.stock);
@@ -168,7 +198,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         {totals.outOfStock > 0 && (
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-              Out of stock
+              Products out of stock
             </div>
             <div className="font-display text-lg font-bold text-maroon-700">
               {totals.outOfStock}
@@ -178,7 +208,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         {totals.lowStock > 0 && (
           <div>
             <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-              Low stock
+              Products low on stock
             </div>
             <div className="font-display text-lg font-bold text-gold-700">
               {totals.lowStock}
@@ -297,102 +327,130 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
           <thead>
             <tr className="border-b border-gold-500/30 bg-cream-50 text-xs uppercase tracking-wide text-brown-500">
               <th className="px-4 py-2 text-left font-medium">Product</th>
-              <th className="px-3 py-2 text-left font-medium">Pack</th>
-              <th className="px-3 py-2 text-right font-medium">In stock</th>
-              <th className="px-3 py-2 text-right font-medium">Sold</th>
               <th className="px-3 py-2 text-right font-medium">Received</th>
-              <th className="px-3 py-2 text-right font-medium" title="Hand corrections">
-                Adjusted
-              </th>
+              <th className="px-3 py-2 text-right font-medium">Sold</th>
+              <th className="px-3 py-2 text-right font-medium">Left in stock</th>
               <th className="px-3 py-2 text-right font-medium">Value</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
-              const value = liveStock(r);
-              const changed = value !== r.stock;
+            {groups.map((g) => {
+              const isOpen = expanded === g.name;
               return (
-                <tr
-                  key={r.variantId}
-                  className={`border-b border-gold-500/15 last:border-0 ${
-                    changed ? "bg-gold-500/10" : ""
-                  }`}
-                >
-                  <td className="px-4 py-2 text-brown-900">
-                    {r.productName}
-                    {!r.productActive && (
-                      <span className="ml-2 text-xs text-brown-500">(hidden)</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-brown-700">{r.label}</td>
-                  <td className="px-3 py-2 text-right">
-                    <input
-                      type="number"
-                      min={0}
-                      value={edits[r.variantId] ?? String(r.stock)}
-                      onChange={(e) =>
-                        setEdits((prev) => ({ ...prev, [r.variantId]: e.target.value }))
-                      }
-                      onFocus={(e) => e.target.select()}
-                      aria-label={`Stock for ${r.productName} ${r.label}`}
-                      className={`w-20 rounded-md border px-2 py-1 text-right text-sm font-semibold ${
-                        value === 0
-                          ? "border-maroon-700/50 bg-maroon-700/5 text-maroon-700"
-                          : "border-gold-500/40 bg-white text-brown-950"
-                      }`}
-                    />
-                  </td>
-                  <td className="px-3 py-2 text-right text-brown-700">{r.sold}</td>
-                  <td className="px-3 py-2 text-right text-brown-700">{r.received}</td>
-                  <td className="px-3 py-2 text-right text-brown-700">
-                    {r.adjusted === 0 ? (
-                      "—"
-                    ) : (
-                      <span title="Hand corrections and stock-takes">
-                        {r.adjusted > 0 ? `+${r.adjusted}` : r.adjusted}
+                <Fragment key={g.name}>
+                  <tr
+                    onClick={() => setExpanded(isOpen ? null : g.name)}
+                    className={`cursor-pointer border-b border-gold-500/15 last:border-0 hover:bg-cream-50 ${
+                      isOpen ? "bg-cream-50" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-2.5 font-medium text-brown-900">
+                      <span className="mr-2 inline-block w-3 text-gold-700">
+                        {isOpen ? "▾" : "▸"}
                       </span>
-                    )}
-                    {!r.reconciles && !changed && (
+                      {g.name}
+                      {!g.productActive && (
+                        <span className="ml-2 text-xs text-brown-500">(hidden)</span>
+                      )}
+                      <span className="ml-2 text-xs text-brown-500">
+                        {g.rows.length} pack{g.rows.length > 1 ? "s" : ""}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-brown-700">{g.received}</td>
+                    <td className="px-3 py-2.5 text-right text-brown-700">{g.sold}</td>
+                    <td className="px-3 py-2.5 text-right">
                       <span
-                        title={`Doesn't add up: ${r.received} received ${
-                          r.adjusted >= 0 ? "+" : "−"
-                        } ${Math.abs(r.adjusted)} adjusted − ${r.sold} sold = ${
-                          r.expected
-                        }, but stock says ${r.stock}`}
-                        className="ml-1 font-bold text-maroon-700"
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                          g.left === 0
+                            ? "bg-maroon-700 text-white"
+                            : g.left <= 5
+                              ? "bg-maroon-700/10 text-maroon-700"
+                              : "bg-forest-950/10 text-forest-950"
+                        }`}
                       >
-                        !
+                        {g.left === 0 ? "Out of stock" : g.left}
                       </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-right text-brown-900">
-                    {formatInr(value * r.priceInr)}
-                  </td>
-                </tr>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-medium text-brown-900">
+                      {formatInr(g.value)}
+                    </td>
+                  </tr>
+
+                  {isOpen &&
+                    g.rows.map((r) => {
+                      const value = liveStock(r);
+                      const changed = value !== r.stock;
+                      return (
+                        <tr
+                          key={r.variantId}
+                          className={`border-b border-gold-500/15 text-xs ${
+                            changed ? "bg-gold-500/10" : "bg-cream-50/60"
+                          }`}
+                        >
+                          <td className="py-2 pl-12 pr-4 text-brown-700">
+                            {r.label}
+                            {!r.reconciles && (
+                              <span
+                                title={`Doesn't add up: ${r.received} received ${
+                                  r.adjusted >= 0 ? "+" : "−"
+                                } ${Math.abs(r.adjusted)} adjusted − ${r.sold} sold = ${
+                                  r.expected
+                                }, but stock says ${r.stock}`}
+                                className="ml-2 font-bold text-maroon-700"
+                              >
+                                !
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-brown-600">
+                            {r.received}
+                            {r.adjusted !== 0 && (
+                              <span className="ml-1 text-brown-400">
+                                ({r.adjusted > 0 ? `+${r.adjusted}` : r.adjusted} adj)
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-right text-brown-600">{r.sold}</td>
+                          <td className="px-3 py-2 text-right">
+                            <input
+                              type="number"
+                              min={0}
+                              value={edits[r.variantId] ?? String(r.stock)}
+                              onChange={(e) =>
+                                setEdits((prev) => ({ ...prev, [r.variantId]: e.target.value }))
+                              }
+                              onFocus={(e) => e.target.select()}
+                              aria-label={`Stock for ${r.productName} ${r.label}`}
+                              className={`w-20 rounded-md border px-2 py-1 text-right text-sm font-semibold ${
+                                value === 0
+                                  ? "border-maroon-700/50 bg-maroon-700/5 text-maroon-700"
+                                  : "border-gold-500/40 bg-white text-brown-950"
+                              }`}
+                            />
+                          </td>
+                          <td className="px-3 py-2 text-right text-brown-700">
+                            {formatInr(value * r.priceInr)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </Fragment>
               );
             })}
-            {rows.length === 0 && (
+            {groups.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-6 text-center text-brown-500">
-                  No pack matches “{query}”.
+                <td colSpan={5} className="px-4 py-6 text-center text-brown-500">
+                  No product matches “{query}”.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-      {!q && matching.length > 12 && (
-        <button
-          onClick={() => setShowAll((v) => !v)}
-          className="mt-2 text-xs font-semibold text-gold-700 hover:underline"
-        >
-          {showAll ? "Show fewer" : `Show all ${matching.length} packs`}
-        </button>
-      )}
       <p className="mt-2 text-xs text-brown-500">
-        Sold counts every pack in non-cancelled orders. Received counts deliveries entered
-        below. Stock drops automatically on each sale and rises on each delivery — edit it
-        here whenever the shelf says something different.
+        One row per product — click it to see each pack size and type what you actually
+        have. Sold counts every pack in non-cancelled orders; Received counts the deliveries
+        entered below.
       </p>
     </div>
   );

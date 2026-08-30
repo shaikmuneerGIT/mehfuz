@@ -6,14 +6,18 @@ import { ProductImage } from "./ProductImage";
 import { FiChevronDown, FiCheck, FiShoppingBag } from "react-icons/fi";
 
 export function ProductCard({ product }: { product: Product }) {
-  // Variants arrive sorted by price ascending, so the first one is the
-  // smallest pack (250g for most products) — the default selection.
-  const [variantId, setVariantId] = useState(product.variants[0]?.id ?? "");
+  // Variants arrive sorted by price ascending, so the smallest pack leads —
+  // but default to the smallest pack that is actually in stock. Defaulting to
+  // a sold-out pack makes a product a customer can buy look unavailable, since
+  // the card shows the selected pack's stock on the button.
+  const defaultVariant =
+    product.variants.find((v) => v.stock > 0) ?? product.variants[0];
+  const [variantId, setVariantId] = useState(defaultVariant?.id ?? "");
   const [open, setOpen] = useState(false);
   const [added, setAdded] = useState(false);
   const dropdownRef = useRef<HTMLSpanElement>(null);
   const { addLine } = useCart();
-  const selected = product.variants.find((v) => v.id === variantId) ?? product.variants[0];
+  const selected = product.variants.find((v) => v.id === variantId) ?? defaultVariant;
 
   // Close the pack-size dropdown when clicking anywhere outside it.
   useEffect(() => {
