@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { requireAdmin } from "../middleware/auth";
 import { applyAdjustments, reconcileStock } from "../lib/stock";
+import { parseWeightKg } from "../lib/shipping";
 
 export const adminRouter = Router();
 adminRouter.use(requireAdmin);
@@ -348,6 +349,10 @@ adminRouter.get("/stock-overview", async (_req, res) => {
         expected: r?.expected ?? 0,
         reconciles: r?.reconciles ?? true,
         stockValueInr: v.stock * v.priceInr,
+        // Pack counts can't be added across sizes — two 1kg packs and one
+        // 250g pack are not "three". Weight is the only unit in which a
+        // product's received, sold and remaining figures can be compared.
+        packKg: parseWeightKg(v.label),
       };
     })
     .sort((a, b) => a.stock - b.stock || a.productName.localeCompare(b.productName));
@@ -360,6 +365,9 @@ adminRouter.get("/stock-overview", async (_req, res) => {
       unitsSold: rows.reduce((s, r) => s + r.sold, 0),
       unitsReceived: rows.reduce((s, r) => s + r.received, 0),
       unitsAdjusted: rows.reduce((s, r) => s + r.adjusted, 0),
+      kgInStock: rows.reduce((s, r) => s + r.stock * r.packKg, 0),
+      kgSold: rows.reduce((s, r) => s + r.sold * r.packKg, 0),
+      kgReceived: rows.reduce((s, r) => s + r.received * r.packKg, 0),
       stockValueInr: rows.reduce((s, r) => s + r.stockValueInr, 0),
       outOfStock: rows.filter((r) => r.stock === 0).length,
       lowStock: rows.filter((r) => r.stock > 0 && r.stock <= LOW_STOCK_THRESHOLD).length,

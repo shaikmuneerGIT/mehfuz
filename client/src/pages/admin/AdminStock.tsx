@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { api } from "../../api/client";
 import type { Product, StockReceipt } from "../../types";
 import { formatInr } from "../../lib/format";
+import { formatWeight } from "../../lib/weight";
 
 interface StockRow {
   variantId: string;
@@ -16,6 +17,7 @@ interface StockRow {
   expected: number;
   reconciles: boolean;
   stockValueInr: number;
+  packKg: number;
 }
 
 interface StockOverview {
@@ -26,6 +28,9 @@ interface StockOverview {
     unitsSold: number;
     unitsReceived: number;
     unitsAdjusted: number;
+    kgInStock: number;
+    kgSold: number;
+    kgReceived: number;
     stockValueInr: number;
     outOfStock: number;
     lowStock: number;
@@ -94,8 +99,10 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         name,
         rows: groupRows,
         productActive: groupRows[0]?.productActive ?? true,
-        received: groupRows.reduce((s, r) => s + r.received, 0),
-        sold: groupRows.reduce((s, r) => s + r.sold, 0),
+        receivedKg: groupRows.reduce((s, r) => s + r.received * r.packKg, 0),
+        soldKg: groupRows.reduce((s, r) => s + r.sold * r.packKg, 0),
+        adjustedKg: groupRows.reduce((s, r) => s + r.adjusted * r.packKg, 0),
+        leftKg: groupRows.reduce((s, r) => s + liveStock(r) * r.packKg, 0),
         left: groupRows.reduce((s, r) => s + liveStock(r), 0),
         value: groupRows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
       };
@@ -111,6 +118,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
   const productStocks = [...stockByProduct.values()];
   const totals = {
     unitsInStock: data.rows.reduce((s, r) => s + liveStock(r), 0),
+    kgInStock: data.rows.reduce((s, r) => s + liveStock(r) * r.packKg, 0),
     stockValueInr: data.rows.reduce((s, r) => s + liveStock(r) * r.priceInr, 0),
     outOfStock: productStocks.filter((n) => n === 0).length,
     lowStock: productStocks.filter((n) => n > 0 && n <= 5).length,
@@ -165,26 +173,26 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
       <div className="mb-3 flex flex-wrap items-center gap-x-8 gap-y-2 rounded-xl border border-gold-500/30 bg-white px-5 py-3">
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-            Units in stock
+            Stock on hand
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {totals.unitsInStock}
+            {formatWeight(totals.kgInStock)}
           </div>
         </div>
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-            Units sold
+            Sold
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {data.totals.unitsSold}
+            {formatWeight(data.totals.kgSold)}
           </div>
         </div>
         <div>
           <div className="text-xs font-medium uppercase tracking-wide text-brown-500">
-            Units received
+            Received
           </div>
           <div className="font-display text-lg font-bold text-brown-950">
-            {data.totals.unitsReceived}
+            {formatWeight(data.totals.kgReceived)}
           </div>
         </div>
         <div>
@@ -328,8 +336,14 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             <tr className="border-b border-gold-500/30 bg-cream-50 text-xs uppercase tracking-wide text-brown-500">
               <th className="px-4 py-2 text-left font-medium">Product</th>
               <th className="px-3 py-2 text-right font-medium">Received</th>
-              <th className="px-3 py-2 text-right font-medium">Sold</th>
-              <th className="px-3 py-2 text-right font-medium">Left in stock</th>
+              <th
+                className="px-3 py-2 text-right font-medium"
+                title="Stock already on the shelf plus any hand corrections"
+              >
+                + Opening
+              </th>
+              <th className="px-3 py-2 text-right font-medium">− Sold</th>
+              <th className="px-3 py-2 text-right font-medium">= Left in stock</th>
               <th className="px-3 py-2 text-right font-medium">Value</th>
             </tr>
           </thead>
@@ -356,8 +370,15 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                         {g.rows.length} pack{g.rows.length > 1 ? "s" : ""}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-right text-brown-700">{g.received}</td>
-                    <td className="px-3 py-2.5 text-right text-brown-700">{g.sold}</td>
+                    <td className="px-3 py-2.5 text-right text-brown-700">
+                      {formatWeight(g.receivedKg)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-brown-700">
+                      {g.adjustedKg === 0 ? "—" : formatWeight(Math.abs(g.adjustedKg))}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-brown-700">
+                      {formatWeight(g.soldKg)}
+                    </td>
                     <td className="px-3 py-2.5 text-right">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
@@ -368,7 +389,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                               : "bg-forest-950/10 text-forest-950"
                         }`}
                       >
-                        {g.left === 0 ? "Out of stock" : g.left}
+                        {g.left === 0 ? "Out of stock" : formatWeight(g.leftKg)}
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-right font-medium text-brown-900">
@@ -403,14 +424,16 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
                             )}
                           </td>
                           <td className="px-3 py-2 text-right text-brown-600">
-                            {r.received}
-                            {r.adjusted !== 0 && (
-                              <span className="ml-1 text-brown-400">
-                                ({r.adjusted > 0 ? `+${r.adjusted}` : r.adjusted} adj)
-                              </span>
-                            )}
+                            {r.received} {r.received === 1 ? "pack" : "packs"}
                           </td>
-                          <td className="px-3 py-2 text-right text-brown-600">{r.sold}</td>
+                          <td className="px-3 py-2 text-right text-brown-600">
+                            {r.adjusted === 0
+                              ? "—"
+                              : `${r.adjusted > 0 ? "+" : ""}${r.adjusted}`}
+                          </td>
+                          <td className="px-3 py-2 text-right text-brown-600">
+                            {r.sold} {r.sold === 1 ? "pack" : "packs"}
+                          </td>
                           <td className="px-3 py-2 text-right">
                             <input
                               type="number"
@@ -439,7 +462,7 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
             })}
             {groups.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-6 text-center text-brown-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-brown-500">
                   No product matches “{query}”.
                 </td>
               </tr>
@@ -448,9 +471,10 @@ function StockOverviewTable({ data, onSaved }: { data: StockOverview; onSaved: (
         </table>
       </div>
       <p className="mt-2 text-xs text-brown-500">
-        One row per product — click it to see each pack size and type what you actually
-        have. Sold counts every pack in non-cancelled orders; Received counts the deliveries
-        entered below.
+        Product rows are in <b>weight</b>, because pack sizes can't be added together — two
+        1kg packs and one 250g pack is 2.25 kg, not "three". Received + Opening − Sold always
+        equals Left. Click a product to see its pack sizes, counted in packs, and type what
+        you actually have.
       </p>
     </div>
   );
