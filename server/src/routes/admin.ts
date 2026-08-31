@@ -622,6 +622,80 @@ adminRouter.get("/summary", async (_req, res) => {
 });
 
 /**
+ * Date handling for the earnings report. Everything is computed in the
+ * server's local time, which is the shop's own day — a sale at 11pm belongs
+ * to that day, not to tomorrow in UTC.
+ */
+interface Bucket {
+  key: string;
+  label: string;
+  startsAt: string;
+  orderCount: number;
+  goodsRevenueInr: number;
+  discountsInr: number;
+  costOfSalesInr: number;
+}
+
+/** `2026-08-31` from the query string; `endOfDay` makes it inclusive. */
+function parseDay(value: unknown, endOfDay = false): Date | null {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [y, m, d] = value.split("-").map(Number);
+  const date = endOfDay
+    ? new Date(y, m - 1, d, 23, 59, 59, 999)
+    : new Date(y, m - 1, d, 0, 0, 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+function monthKey(at: Date): { key: string; label: string; startsAt: string } {
+  const y = at.getFullYear();
+  const m = at.getMonth();
+  return {
+    key: `${y}-${String(m + 1).padStart(2, "0")}`,
+    label: `${MONTHS[m]} ${y}`,
+    startsAt: new Date(y, m, 1).toISOString(),
+  };
+}
+
+/** Weeks run Monday to Sunday, which is how a shop's week is counted. */
+function weekKey(at: Date): { key: string; label: string; startsAt: string } {
+  const monday = new Date(at.getFullYear(), at.getMonth(), at.getDate());
+  const shift = (monday.getDay() + 6) % 7;
+  monday.setDate(monday.getDate() - shift);
+  const sunday = new Date(monday);
+  sunday.setDate(sunday.getDate() + 6);
+
+  const short = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+  return {
+    key: `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(
+      monday.getDate()
+    ).padStart(2, "0")}`,
+    label: `${short(monday)} – ${short(sunday)}`,
+    startsAt: monday.toISOString(),
+  };
+}
+
+/** Finish the sums and put the most recent period first. */
+function closeBuckets(map: Map<string, Bucket>) {
+  return [...map.values()]
+    .map((b) => {
+      const netRevenueInr = b.goodsRevenueInr - b.discountsInr;
+      const earningsInr = netRevenueInr - b.costOfSalesInr;
+      return {
+        ...b,
+        netRevenueInr,
+        earningsInr,
+        marginPct: netRevenueInr > 0 ? Math.round((earningsInr / netRevenueInr) * 100) : 0,
+      };
+    })
+    .sort((a, b) => (a.startsAt < b.startsAt ? 1 : -1));
+}
+
+/**
  * What the shop actually earned.
  *
  * The headline figure is deliberately NOT "money in minus money spent on
@@ -641,17 +715,29 @@ adminRouter.get("/earnings", async (req, res) => {
   // "paid" is the honest default — an unpaid order is not money earned.
   const paidOnly = req.query.paidOnly !== "false";
 
+  // A day given as `to` means the whole of that day, not midnight at its start.
+  const from = parseDay(req.query.from);
+  const to = parseDay(req.query.to, true);
+  const inRange =
+    from || to ? { createdAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {};
+
   const [orders, receipts, expenses, products] = await Promise.all([
     prisma.order.findMany({
       where: {
         status: { not: "CANCELLED" },
         ...(paidOnly ? { paymentStatus: "PAID" } : {}),
+        ...inRange,
       },
       include: { items: true },
       orderBy: { createdAt: "desc" },
     }),
     prisma.stockReceipt.findMany({ include: { items: true } }),
-    prisma.expense.findMany(),
+    prisma.expense.findMany({
+      where:
+        from || to
+          ? { incurredAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } }
+          : {},
+    }),
     prisma.product.findMany({
       select: { id: true, name: true, stockGrams: true },
     }),
@@ -683,12 +769,32 @@ adminRouter.get("/earnings", async (req, res) => {
   let costOfSalesInr = 0;
   let unpricedGramsSold = 0;
 
+  // Same numbers, cut by calendar month and by week, so a good or bad
+  // stretch is visible rather than averaged away across the whole history.
+  const buckets = { month: new Map<string, Bucket>(), week: new Map<string, Bucket>() };
+  const bucketFor = (kind: "month" | "week", order: { createdAt: Date }) => {
+    const { key, label, startsAt } =
+      kind === "month" ? monthKey(order.createdAt) : weekKey(order.createdAt);
+    let b = buckets[kind].get(key);
+    if (!b) {
+      b = { key, label, startsAt, orderCount: 0, goodsRevenueInr: 0, discountsInr: 0, costOfSalesInr: 0 };
+      buckets[kind].set(key, b);
+    }
+    return b;
+  };
+
   for (const order of orders) {
+    const month = bucketFor("month", order);
+    const week = bucketFor("week", order);
+    month.orderCount += 1;
+    week.orderCount += 1;
     const itemsTotal = order.items.reduce((s, i) => s + i.priceInr * i.quantity, 0);
     // The admin can edit an order's total, so the difference between the line
     // items and what was charged is a discount (or a surcharge, if negative).
     const discount = itemsTotal + order.shippingInr - order.totalInr;
     discountsInr += discount;
+    month.discountsInr += discount;
+    week.discountsInr += discount;
     shippingCollectedInr += order.shippingInr;
 
     for (const item of order.items) {
@@ -700,6 +806,10 @@ adminRouter.get("/earnings", async (req, res) => {
 
       goodsRevenueInr += lineRevenue;
       costOfSalesInr += lineCost;
+      month.goodsRevenueInr += lineRevenue;
+      month.costOfSalesInr += lineCost;
+      week.goodsRevenueInr += lineRevenue;
+      week.costOfSalesInr += lineCost;
 
       const row = perProduct.get(item.productId) ?? {
         productId: item.productId,
@@ -753,6 +863,10 @@ adminRouter.get("/earnings", async (req, res) => {
     // which flatters earnings, so the page says so rather than hiding it.
     unpricedGramsSold,
     products: productRows,
+    from: from ? from.toISOString() : null,
+    to: to ? to.toISOString() : null,
+    months: closeBuckets(buckets.month),
+    weeks: closeBuckets(buckets.week),
   });
 });
 
