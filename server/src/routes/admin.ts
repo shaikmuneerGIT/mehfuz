@@ -621,6 +621,141 @@ adminRouter.get("/summary", async (_req, res) => {
   });
 });
 
+/**
+ * What the shop actually earned.
+ *
+ * The headline figure is deliberately NOT "money in minus money spent on
+ * stock": buying a 10 kg sack in one month and selling it over three would
+ * show a loss then a windfall. Earnings are measured against the cost of the
+ * goods that were actually SOLD, worked out from what was paid for them:
+ *
+ *     cost per gram  = what a product's deliveries cost / grams they brought in
+ *     cost of sales  = grams sold x cost per gram
+ *     earnings       = what customers paid for goods - cost of sales
+ *
+ * Delivery is left out of earnings entirely. The fee a customer pays is
+ * collected on the courier's behalf and handed straight to DTDC, so counting
+ * it as income would inflate every figure on the page.
+ */
+adminRouter.get("/earnings", async (req, res) => {
+  // "paid" is the honest default — an unpaid order is not money earned.
+  const paidOnly = req.query.paidOnly !== "false";
+
+  const [orders, receipts, expenses, products] = await Promise.all([
+    prisma.order.findMany({
+      where: {
+        status: { not: "CANCELLED" },
+        ...(paidOnly ? { paymentStatus: "PAID" } : {}),
+      },
+      include: { items: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.stockReceipt.findMany({ include: { items: true } }),
+    prisma.expense.findMany(),
+    prisma.product.findMany({
+      select: { id: true, name: true, stockGrams: true },
+    }),
+  ]);
+
+  // What each product's stock costs per gram, from its recorded deliveries.
+  const costByProduct = new Map<string, { paid: number; grams: number }>();
+  for (const r of receipts) {
+    const grams = r.items.reduce((g, i) => g + packGrams(i.labelSnapshot) * i.quantity, 0);
+    const acc = costByProduct.get(r.productId) ?? { paid: 0, grams: 0 };
+    acc.paid += r.totalCostInr;
+    acc.grams += grams;
+    costByProduct.set(r.productId, acc);
+  }
+  const costPerGram = (productId: string) => {
+    const c = costByProduct.get(productId);
+    return c && c.grams > 0 ? c.paid / c.grams : 0;
+  };
+
+  // Per product: what sold, what it earned, what it cost.
+  const perProduct = new Map<
+    string,
+    { productId: string; productName: string; gramsSold: number; revenueInr: number; costInr: number }
+  >();
+
+  let goodsRevenueInr = 0;
+  let shippingCollectedInr = 0;
+  let discountsInr = 0;
+  let costOfSalesInr = 0;
+  let unpricedGramsSold = 0;
+
+  for (const order of orders) {
+    const itemsTotal = order.items.reduce((s, i) => s + i.priceInr * i.quantity, 0);
+    // The admin can edit an order's total, so the difference between the line
+    // items and what was charged is a discount (or a surcharge, if negative).
+    const discount = itemsTotal + order.shippingInr - order.totalInr;
+    discountsInr += discount;
+    shippingCollectedInr += order.shippingInr;
+
+    for (const item of order.items) {
+      const grams = packGrams(item.labelSnapshot) * item.quantity;
+      const lineRevenue = item.priceInr * item.quantity;
+      const perGram = costPerGram(item.productId);
+      const lineCost = Math.round(grams * perGram);
+      if (perGram === 0) unpricedGramsSold += grams;
+
+      goodsRevenueInr += lineRevenue;
+      costOfSalesInr += lineCost;
+
+      const row = perProduct.get(item.productId) ?? {
+        productId: item.productId,
+        productName: item.nameSnapshot,
+        gramsSold: 0,
+        revenueInr: 0,
+        costInr: 0,
+      };
+      row.gramsSold += grams;
+      row.revenueInr += lineRevenue;
+      row.costInr += lineCost;
+      perProduct.set(item.productId, row);
+    }
+  }
+
+  // A discount comes off the goods, since delivery is charged at cost.
+  const netGoodsRevenueInr = goodsRevenueInr - discountsInr;
+  const grossEarningsInr = netGoodsRevenueInr - costOfSalesInr;
+  const expensesInr = expenses.reduce((s, e) => s + e.amountInr, 0);
+  const netEarningsInr = grossEarningsInr - expensesInr;
+
+  // Money still sitting on the shelf, valued at what it cost.
+  const stockAtCostInr = products.reduce(
+    (s, p) => s + Math.round(p.stockGrams * costPerGram(p.id)),
+    0
+  );
+
+  const productRows = [...perProduct.values()]
+    .map((r) => ({
+      ...r,
+      earningsInr: r.revenueInr - r.costInr,
+      marginPct: r.revenueInr > 0 ? Math.round(((r.revenueInr - r.costInr) / r.revenueInr) * 100) : 0,
+    }))
+    .sort((a, b) => b.earningsInr - a.earningsInr);
+
+  res.json({
+    paidOnly,
+    orderCount: orders.length,
+    goodsRevenueInr,
+    discountsInr,
+    netGoodsRevenueInr,
+    shippingCollectedInr,
+    costOfSalesInr,
+    grossEarningsInr,
+    expensesInr,
+    netEarningsInr,
+    stockAtCostInr,
+    marginPct:
+      netGoodsRevenueInr > 0 ? Math.round((grossEarningsInr / netGoodsRevenueInr) * 100) : 0,
+    // Sold weight with no purchase price behind it — its cost counts as zero,
+    // which flatters earnings, so the page says so rather than hiding it.
+    unpricedGramsSold,
+    products: productRows,
+  });
+});
+
 // ---- Shipping / delivery-fee configuration ----
 
 const shippingConfigSchema = z.object({

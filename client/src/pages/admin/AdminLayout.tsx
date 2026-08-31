@@ -8,6 +8,7 @@ const LINKS = [
   { to: "/admin/categories", label: "Categories" },
   { to: "/admin/orders", label: "Orders" },
   { to: "/admin/stock", label: "Stock" },
+  { to: "/admin/earnings", label: "Earnings" },
   { to: "/admin/expenses", label: "Expenses" },
   { to: "/admin/shipping", label: "Shipping" },
   { to: "/admin/banners", label: "Banners" },
