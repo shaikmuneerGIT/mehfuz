@@ -11,6 +11,7 @@ interface ShippingConfig {
   midPerKgFee: number;
   bulkPerKgFee: number;
   cityRadiusKm: number;
+  serviceableStates: string[];
 }
 
 interface Quote {
@@ -19,7 +20,14 @@ interface Quote {
   weightKg: number;
   distanceKm: number | null;
   zone: string;
+  stateName: string | null;
 }
+
+const STATES = [
+  { code: "TG", name: "Telangana", from: 500, to: 509 },
+  { code: "AP", name: "Andhra Pradesh", from: 515, to: 535 },
+  { code: "KA", name: "Karnataka", from: 560, to: 591 },
+];
 
 export function AdminShipping() {
   const [config, setConfig] = useState<ShippingConfig | null>(null);
@@ -74,9 +82,9 @@ export function AdminShipping() {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold text-brown-950">Shipping</h1>
         <p className="mt-1 text-sm text-brown-500">
-          Delivery is <b>within Hyderabad only</b>, shipped by DTDC and charged by parcel
-          weight — the same slabs for the whole city, no distance component. Pincodes beyond
-          the delivery radius cannot place an order.
+          Delivery is shipped by DTDC and charged by <b>parcel weight</b> — the same slabs
+          everywhere, with no distance component. Whether an address can be served is decided
+          by its state, since pincodes are allocated in blocks per state.
         </p>
       </div>
 
@@ -165,19 +173,44 @@ export function AdminShipping() {
               disabled={!config.enabled}
             />
           </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium text-brown-800">Delivery radius (km)</span>
-            <input
-              type="number"
-              min={1}
-              value={config.cityRadiusKm}
-              onChange={(e) => set("cityRadiusKm", Number(e.target.value || 1))}
-              className="input"
-            />
+          <div className="block text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-brown-800">We deliver to</span>
+            <div className="flex flex-wrap gap-3">
+              {STATES.map((st) => {
+                const on = config.serviceableStates?.includes(st.code) ?? false;
+                return (
+                  <label
+                    key={st.code}
+                    className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                      on
+                        ? "border-gold-500 bg-cream-50 font-semibold text-brown-950"
+                        : "border-gold-500/30 text-brown-600"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={(e) =>
+                        set(
+                          "serviceableStates",
+                          e.target.checked
+                            ? [...(config.serviceableStates ?? []), st.code]
+                            : (config.serviceableStates ?? []).filter((c) => c !== st.code)
+                        )
+                      }
+                    />
+                    {st.name}
+                    <span className="text-xs font-normal text-brown-500">
+                      {st.from}–{st.to}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
             <span className="mt-1 block text-xs text-brown-500">
-              Pincodes farther than this can't order.
+              A pincode outside every ticked state cannot place an order.
             </span>
-          </label>
+          </div>
         </div>
 
         <p className="rounded-lg bg-cream-50 p-3 text-xs text-brown-600">
@@ -204,6 +237,9 @@ export function AdminShipping() {
               (testQuote.serviceable ? (
                 <span className="text-sm text-brown-900">
                   Deliverable
+                  {testQuote.stateName && (
+                    <span className="text-brown-500"> — {testQuote.stateName}</span>
+                  )}
                   {testQuote.distanceKm !== null && (
                     <span className="text-brown-500"> (≈{testQuote.distanceKm} km away)</span>
                   )}

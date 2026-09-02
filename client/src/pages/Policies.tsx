@@ -231,7 +231,7 @@ export function ShippingPage() {
 
       <h2>Delivery time</h2>
       <p>
-        Deliveries within Hyderabad usually arrive in 1–3 working days after dispatch,
+        Deliveries usually arrive in 1–3 working days after dispatch within Hyderabad, and 2–5 working days elsewhere in Telangana, Andhra Pradesh and Karnataka,
         depending on your location.
       </p>
 
@@ -267,7 +267,7 @@ export function ShippingPage() {
 
       <h2>Serviceable areas</h2>
       <p>
-        We currently deliver <b>within Hyderabad only</b>. If your pincode is outside our
+        We currently deliver across <b>Telangana, Andhra Pradesh and Karnataka</b>. If your pincode is outside our
         delivery area, checkout will let you know — message us on WhatsApp and we'll try to
         arrange something for you. For bulk, corporate or wholesale orders, contact us at{" "}
         {CONTACT}.

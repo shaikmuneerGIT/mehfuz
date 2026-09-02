@@ -996,6 +996,7 @@ const shippingConfigSchema = z.object({
   midPerKgFee: z.number().int().min(0).max(5000),
   bulkPerKgFee: z.number().int().min(0).max(5000),
   cityRadiusKm: z.number().int().min(1).max(500),
+  serviceableStates: z.array(z.string().min(2).max(4)).min(1).max(40).optional(),
 });
 
 adminRouter.get("/shipping", async (_req, res) => {
@@ -1008,9 +1009,13 @@ adminRouter.put("/shipping", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid shipping settings", details: parsed.error.flatten() });
   }
-  const { saveShippingConfig } = await import("../lib/shipping");
-  await saveShippingConfig(parsed.data);
-  res.json(parsed.data);
+  const { saveShippingConfig, DEFAULT_SHIPPING } = await import("../lib/shipping");
+  const config = {
+    ...parsed.data,
+    serviceableStates: parsed.data.serviceableStates ?? DEFAULT_SHIPPING.serviceableStates,
+  };
+  await saveShippingConfig(config);
+  res.json(config);
 });
 
 // ---- Hero slideshow banners ----

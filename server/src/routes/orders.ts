@@ -115,7 +115,7 @@ ordersRouter.post("/", checkoutLimiter, async (req, res) => {
   if (!shippingQuote.serviceable) {
     return res.status(400).json({
       error:
-        "Sorry, we currently deliver only within Hyderabad. Message us on WhatsApp (+91 98489 18992) and we'll try to arrange delivery for you.",
+        "Sorry, we currently deliver only within Telangana, Andhra Pradesh and Karnataka. Message us on WhatsApp (+91 98489 18992) and we'll try to arrange delivery for you.",
     });
   }
   const shippingInr = shippingQuote.feeInr;

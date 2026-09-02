@@ -3,10 +3,34 @@ import fs from "node:fs";
 import { prisma } from "./prisma";
 
 /**
- * Hyderabad-only delivery, priced by parcel weight on our DTDC slabs (no
- * distance component). The bundled table of geocoded Hyderabad pincodes is
- * still used to decide whether an address is serviceable at all.
+ * Delivery across Telangana, Andhra Pradesh and Karnataka, priced by parcel
+ * weight on our DTDC slabs — the same rate everywhere, with no distance
+ * component. Serviceability is decided by the pincode's state, since India
+ * allocates pincodes in contiguous blocks per state; the bundled table of
+ * geocoded Hyderabad pincodes is now only used to show a distance in the
+ * admin, never to accept or refuse an order.
  */
+
+export interface ServiceableState {
+  code: string;
+  name: string;
+  /** Inclusive range of the pincode's first three digits. */
+  from: number;
+  to: number;
+}
+
+export const STATE_PIN_RANGES: ServiceableState[] = [
+  { code: "TG", name: "Telangana", from: 500, to: 509 },
+  { code: "AP", name: "Andhra Pradesh", from: 515, to: 535 },
+  { code: "KA", name: "Karnataka", from: 560, to: 591 },
+];
+
+/** The state a pincode belongs to, or null if it is outside all of them. */
+export function stateForPin(pin: string): ServiceableState | null {
+  if (!/^\d{6}$/.test(pin)) return null;
+  const prefix = Number(pin.slice(0, 3));
+  return STATE_PIN_RANGES.find((s) => prefix >= s.from && prefix <= s.to) ?? null;
+}
 export interface ShippingConfig {
   enabled: boolean;
   warehousePincode: string;
@@ -22,6 +46,8 @@ export interface ShippingConfig {
   bulkPerKgFee: number;
   /** Beyond this straight-line distance the order is not serviceable. */
   cityRadiusKm: number;
+  /** State codes we deliver to; a pincode outside all of them is refused. */
+  serviceableStates: string[];
 }
 
 export const DEFAULT_SHIPPING: ShippingConfig = {
@@ -33,6 +59,7 @@ export const DEFAULT_SHIPPING: ShippingConfig = {
   midPerKgFee: 80,
   bulkPerKgFee: 60,
   cityRadiusKm: 40,
+  serviceableStates: ["TG", "AP", "KA"],
 };
 
 const KEY = "shippingConfig";
@@ -122,7 +149,10 @@ export interface ShippingQuote {
   feeInr: number;
   weightKg: number;
   distanceKm: number | null;
-  zone: "city" | "free" | "disabled" | "outside" | "unknown";
+  /** A state code (TG/AP/KA) when deliverable, otherwise why not. */
+  zone: string;
+  /** Human-readable state name, for the admin pincode check. */
+  stateName: string | null;
 }
 
 /** DTDC slabs: ≤500 g flat, ≤1 kg flat, then per rounded-up kg. */
@@ -141,35 +171,62 @@ export function quoteShipping(
 ): ShippingQuote {
   const pin = (pincode ?? "").replace(/\D/g, "");
   if (pin.length !== 6) {
-    return { serviceable: false, feeInr: 0, weightKg, distanceKm: null, zone: "unknown" };
+    return {
+      serviceable: false,
+      feeInr: 0,
+      weightKg,
+      distanceKm: null,
+      zone: "unknown",
+      stateName: null,
+    };
   }
 
+  // Distance is informational only now — DTDC charges the same by weight
+  // whether the parcel goes across Hyderabad or to Bangalore.
   const pins = loadPins();
   const warehouse = pins[config.warehousePincode];
   const customer = pins[pin];
+  const distanceKm =
+    warehouse && customer ? Math.round(haversineKm(warehouse, customer) * 10) / 10 : null;
 
-  let distanceKm: number | null = null;
-  if (warehouse && customer) {
-    distanceKm = Math.round(haversineKm(warehouse, customer) * 10) / 10;
-  } else if (/^500\d{3}$/.test(pin) || /^5015\d{2}$/.test(pin) || /^5011\d{2}$/.test(pin)) {
-    // Hyderabad-prefixed pin missing from the table: treat as in-city.
-    distanceKm = FALLBACK_KM;
-  }
-
-  if (distanceKm === null || distanceKm > config.cityRadiusKm) {
-    return { serviceable: false, feeInr: 0, weightKg, distanceKm, zone: "outside" };
+  const state = stateForPin(pin);
+  const allowed = config.serviceableStates ?? DEFAULT_SHIPPING.serviceableStates;
+  if (!state || !allowed.includes(state.code)) {
+    return {
+      serviceable: false,
+      feeInr: 0,
+      weightKg,
+      distanceKm,
+      zone: "outside",
+      stateName: state ? state.name : null,
+    };
   }
   if (!config.enabled) {
-    return { serviceable: true, feeInr: 0, weightKg, distanceKm, zone: "disabled" };
+    return {
+      serviceable: true,
+      feeInr: 0,
+      weightKg,
+      distanceKm,
+      zone: "disabled",
+      stateName: state.name,
+    };
   }
   if (config.freeAbove > 0 && subtotalInr >= config.freeAbove) {
-    return { serviceable: true, feeInr: 0, weightKg, distanceKm, zone: "free" };
+    return {
+      serviceable: true,
+      feeInr: 0,
+      weightKg,
+      distanceKm,
+      zone: "free",
+      stateName: state.name,
+    };
   }
   return {
     serviceable: true,
     feeInr: weightFee(config, weightKg),
     weightKg,
     distanceKm,
-    zone: "city",
+    zone: state.code,
+    stateName: state.name,
   };
 }

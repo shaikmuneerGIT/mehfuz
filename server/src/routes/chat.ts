@@ -81,7 +81,7 @@ chatRouter.post("/", chatLimiter, async (req, res) => {
     const catalog = await catalogSnapshot();
     const { loadShippingConfig } = await import("../lib/shipping");
     const sc = await loadShippingConfig();
-    const deliveryFact = `We deliver ONLY within Hyderabad right now (customers outside Hyderabad should WhatsApp us to arrange something). ${
+    const deliveryFact = `We deliver across Telangana, Andhra Pradesh and Karnataka (customers elsewhere should WhatsApp us to arrange something). ${
       !sc.enabled
         ? "Delivery is FREE on all Hyderabad orders at the moment."
         : `Delivery is by DTDC courier and priced by parcel weight: ₹${sc.upto500gFee} up to 500 g, ₹${sc.upto1kgFee} up to 1 kg, ₹${sc.midPerKgFee} per kg for 2-3 kg, and ₹${sc.bulkPerKgFee} per kg above that${

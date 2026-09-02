@@ -262,7 +262,8 @@ export function Checkout() {
 
             {outsideArea && (
               <p className="rounded-lg border border-maroon-700/40 bg-maroon-700/5 p-3 text-sm text-maroon-700">
-                Sorry, we currently deliver <b>only within Hyderabad</b>. Message us on{" "}
+                Sorry, that pincode is outside our delivery area. We deliver across{" "}
+                <b>Telangana, Andhra Pradesh and Karnataka</b>. Message us on{" "}
                 <a
                   href="https://wa.me/919848918992"
                   target="_blank"
