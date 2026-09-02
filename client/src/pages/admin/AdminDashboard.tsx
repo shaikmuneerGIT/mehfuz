@@ -17,6 +17,7 @@ interface Summary {
   totalRevenueInr: number;
   totalStockCostInr: number;
   totalExpensesInr: number;
+  totalRemittedInr: number;
   profitInr: number;
   lowStock?: LowStockItem[];
 }
@@ -63,6 +64,10 @@ export function AdminDashboard() {
       value: summary ? formatInr(summary.totalExpensesInr) : "—",
     },
     {
+      label: "Remitted to Team",
+      value: summary ? formatInr(summary.totalRemittedInr) : "—",
+    },
+    {
       label: "Profit",
       value: summary ? formatInr(summary.profitInr) : "—",
       highlight: (summary?.profitInr ?? 0) >= 0 ? "positive" : "negative",
@@ -102,7 +107,9 @@ export function AdminDashboard() {
       </div>
       <p className="mt-4 text-xs text-brown-500">
         Profit = total order revenue − stock cost (Stock page) − business expenses (Expenses
-        page). Keep both updated to see real profit.
+        page). Keep both updated to see real profit. Money remitted between the team is
+        shown for reference only — it is a transfer, not a cost, so it is not subtracted
+        again here. For earnings measured against what actually sold, see the Earnings page.
       </p>
 
       {lowStock.length > 0 && (

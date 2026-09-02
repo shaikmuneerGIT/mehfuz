@@ -153,3 +153,21 @@ model Expense {
   incurredAt DateTime @default(now())
   createdAt  DateTime @default(now())
 }
+
+/**
+ * Money handed over between the people running the shop — the seller in
+ * Hyderabad settling up with whoever supplied and sent the goods. It is a
+ * transfer inside the business, not a sale and not an expense, so it is kept
+ * on its own books and never touches earnings.
+ */
+model Remittance {
+  id         String   @id @default(cuid())
+  paidOn     DateTime @default(now())
+  amountInr  Int
+  paidBy     String
+  paidTo     String
+  method     String?
+  reference  String?
+  notes      String?
+  createdAt  DateTime @default(now())
+}

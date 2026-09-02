@@ -206,6 +206,17 @@ async function ensureNewTables() {
       "key" TEXT NOT NULL PRIMARY KEY,
       "value" TEXT NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS "Remittance" (
+      "id" TEXT NOT NULL PRIMARY KEY,
+      "paidOn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      "amountInr" INTEGER NOT NULL,
+      "paidBy" TEXT NOT NULL,
+      "paidTo" TEXT NOT NULL,
+      "method" TEXT,
+      "reference" TEXT,
+      "notes" TEXT,
+      "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`,
     `CREATE TABLE IF NOT EXISTS "Expense" (
       "id" TEXT NOT NULL PRIMARY KEY,
       "title" TEXT NOT NULL,

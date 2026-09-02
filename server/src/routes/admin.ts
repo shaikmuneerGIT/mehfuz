@@ -572,6 +572,108 @@ adminRouter.delete("/expenses/:id", async (req, res) => {
   res.status(204).send();
 });
 
+// ---- Remittances ----
+
+/**
+ * Money handed between the people running the shop — the seller settling up
+ * with whoever supplied and sent the goods. This is a transfer inside the
+ * business, so it deliberately does NOT touch earnings: the goods were already
+ * costed when their delivery was recorded, and counting the cash again would
+ * subtract the same money twice.
+ */
+const remittanceSchema = z.object({
+  amountInr: z.number().int().min(1).max(100_000_000),
+  paidBy: z.string().min(1).max(80),
+  paidTo: z.string().min(1).max(80),
+  method: z.string().max(40).optional(),
+  reference: z.string().max(80).optional(),
+  notes: z.string().max(500).optional(),
+  paidOn: z.string().optional(),
+});
+
+adminRouter.get("/remittances", async (req, res) => {
+  const from = parseDay(req.query.from);
+  const to = parseDay(req.query.to, true);
+  const where =
+    from || to ? { paidOn: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {};
+
+  const remittances = await prisma.remittance.findMany({
+    where,
+    orderBy: [{ paidOn: "desc" }, { createdAt: "desc" }],
+  });
+
+  // Grouped by the day it was handed over, which is how it gets checked
+  // against a diary or a bank statement.
+  const days = new Map<string, { day: string; label: string; totalInr: number; count: number }>();
+  for (const r of remittances) {
+    const key = `${r.paidOn.getFullYear()}-${String(r.paidOn.getMonth() + 1).padStart(2, "0")}-${String(
+      r.paidOn.getDate()
+    ).padStart(2, "0")}`;
+    const d = days.get(key) ?? {
+      day: key,
+      label: r.paidOn.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }),
+      totalInr: 0,
+      count: 0,
+    };
+    d.totalInr += r.amountInr;
+    d.count += 1;
+    days.set(key, d);
+  }
+
+  // Who has handed over how much, so a running balance between two people is
+  // visible without adding the rows up by hand.
+  const byPerson = new Map<string, { paidBy: string; paidTo: string; totalInr: number; count: number }>();
+  for (const r of remittances) {
+    const key = `${r.paidBy}→${r.paidTo}`;
+    const p = byPerson.get(key) ?? { paidBy: r.paidBy, paidTo: r.paidTo, totalInr: 0, count: 0 };
+    p.totalInr += r.amountInr;
+    p.count += 1;
+    byPerson.set(key, p);
+  }
+
+  res.json({
+    remittances,
+    totalInr: remittances.reduce((s, r) => s + r.amountInr, 0),
+    days: [...days.values()],
+    byPerson: [...byPerson.values()].sort((a, b) => b.totalInr - a.totalInr),
+  });
+});
+
+adminRouter.post("/remittances", async (req, res) => {
+  const parsed = remittanceSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid remittance data" });
+  const { amountInr, paidBy, paidTo, method, reference, notes, paidOn } = parsed.data;
+
+  // A day with no time means midday, so it cannot slip to the previous date
+  // when read back in another timezone.
+  const day = parseDay(paidOn);
+  const paidOnDate = day ? new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12) : new Date();
+
+  const remittance = await prisma.remittance.create({
+    data: {
+      amountInr,
+      paidBy: paidBy.trim(),
+      paidTo: paidTo.trim(),
+      method: method?.trim() || null,
+      reference: reference?.trim() || null,
+      notes: notes?.trim() || null,
+      paidOn: paidOnDate,
+    },
+  });
+  res.status(201).json(remittance);
+});
+
+adminRouter.delete("/remittances/:id", async (req, res) => {
+  const existing = await prisma.remittance.findUnique({ where: { id: req.params.id as string } });
+  if (!existing) return res.status(404).json({ error: "Entry not found" });
+  await prisma.remittance.delete({ where: { id: existing.id } });
+  res.status(204).send();
+});
+
 // ---- Dashboard summary ----
 
 const LOW_STOCK_THRESHOLD = 5;
@@ -579,7 +681,16 @@ const LOW_STOCK_THRESHOLD = 5;
 const LOW_STOCK_GRAMS = 500;
 
 adminRouter.get("/summary", async (_req, res) => {
-  const [productCount, orderCount, pendingOrders, revenueAgg, stockCostAgg, expenseAgg, lowStock] =
+  const [
+    productCount,
+    orderCount,
+    pendingOrders,
+    revenueAgg,
+    stockCostAgg,
+    expenseAgg,
+    remittanceAgg,
+    lowStock,
+  ] =
     await Promise.all([
       prisma.product.count(),
       prisma.order.count(),
@@ -590,6 +701,7 @@ adminRouter.get("/summary", async (_req, res) => {
       }),
       prisma.stockReceipt.aggregate({ _sum: { totalCostInr: true } }),
       prisma.expense.aggregate({ _sum: { amountInr: true } }),
+      prisma.remittance.aggregate({ _sum: { amountInr: true } }),
       prisma.variant.findMany({
         where: {
           stock: { lte: LOW_STOCK_THRESHOLD },
@@ -604,6 +716,8 @@ adminRouter.get("/summary", async (_req, res) => {
   const totalRevenueInr = revenueAgg._sum.totalInr ?? 0;
   const totalStockCostInr = stockCostAgg._sum.totalCostInr ?? 0;
   const totalExpensesInr = expenseAgg._sum.amountInr ?? 0;
+  // Settled between the team; a transfer, not a cost, so it stays out of profit.
+  const totalRemittedInr = remittanceAgg._sum.amountInr ?? 0;
   res.json({
     productCount,
     orderCount,
@@ -611,6 +725,7 @@ adminRouter.get("/summary", async (_req, res) => {
     totalRevenueInr,
     totalStockCostInr,
     totalExpensesInr,
+    totalRemittedInr,
     profitInr: totalRevenueInr - totalStockCostInr - totalExpensesInr,
     lowStock: lowStock.map((v) => ({
       variantId: v.id,

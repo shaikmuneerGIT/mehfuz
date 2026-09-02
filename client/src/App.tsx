@@ -23,6 +23,7 @@ import { AdminOrders } from "./pages/admin/AdminOrders";
 import { AdminStock } from "./pages/admin/AdminStock";
 import { AdminExpenses } from "./pages/admin/AdminExpenses";
 import { AdminEarnings } from "./pages/admin/AdminEarnings";
+import { AdminRemittances } from "./pages/admin/AdminRemittances";
 import { AdminCategories } from "./pages/admin/AdminCategories";
 import { AdminShipping } from "./pages/admin/AdminShipping";
 import { AdminBanners } from "./pages/admin/AdminBanners";
@@ -77,6 +78,7 @@ export default function App() {
         <Route path="stock" element={<AdminStock />} />
         <Route path="expenses" element={<AdminExpenses />} />
         <Route path="earnings" element={<AdminEarnings />} />
+        <Route path="remittances" element={<AdminRemittances />} />
         <Route path="categories" element={<AdminCategories />} />
         <Route path="shipping" element={<AdminShipping />} />
         <Route path="banners" element={<AdminBanners />} />
